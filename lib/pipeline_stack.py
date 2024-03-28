@@ -7,6 +7,7 @@ from constructs import Construct
 from aws_cdk import pipelines as pipelines
 from aws_cdk import aws_iam as iam
 from aws_cdk.pipelines import CodePipeline, CodePipelineSource, ShellStep
+from aws_cdk.aws_codepipeline_actions import GitHubTrigger
 
 
 from .configuration import (
@@ -59,12 +60,19 @@ class PipelineStack(Stack):
         # "/" + self.mappings[DEPLOYMENT][GITHUB_REPOSITORY_NAME]
 
         repository = "Last-Mile-Health/lmd-aws-cdk-pipelines-application-infrastructure"
+        resource_name_prefix = get_resource_name_prefix()
 
-        input = CodePipelineSource.git_hub(repository, target_branch)
+        input = CodePipelineSource.git_hub(
+            repository,
+            target_branch,
+            authentication=SecretValue.secrets_manager(self.mappings[DEPLOYMENT][GITHUB_TOKEN]),
+            trigger=GitHubTrigger.WEBHOOK
+        )
 
         pipeline = CodePipeline(
             self,
             f'{target_environment}{logical_id_prefix}ApplicationPipeline',
+            pipeline_name=f'{target_environment.lower()}-{resource_name_prefix}-infrastructure-pipeline',
             self_mutation=False,
             cross_account_keys=True,
             synth=ShellStep(
@@ -74,8 +82,9 @@ class PipelineStack(Stack):
                     "npm install -g aws-cdk",
                     "pip3 install -r requirements.txt",
                     f'export ENV={target_environment} && cdk synth --verbose'
-                ]
-            )
+                ],
+            ),
+
         )
         # source_artifact = codepipeline.Artifact()
         # cloud_assembly_artifact = codepipeline.Artifact()

@@ -1,8 +1,9 @@
 attrs==23.2.0
-aws-cdk-lib==2.133.0
+aws-cdk-lib==2.134.0
 aws-cdk.asset-awscli-v1==2.2.202
 aws-cdk.asset-kubectl-v20==2.1.2
 aws-cdk.asset-node-proxy-agent-v6==2.0.1
+aws-cdk.aws-amplify-alpha==2.134.0a0
 boto3==1.17.112
 botocore==1.20.112
 cattrs==23.2.3
