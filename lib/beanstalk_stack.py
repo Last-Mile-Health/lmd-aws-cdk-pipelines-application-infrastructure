@@ -162,7 +162,7 @@ class BeanstalkStack(Stack):
             self, f'{id}-portal-services-environment',
             application_name=application.application_name,
             environment_name=f'{target_environment}-portal-services-environment',
-            solution_stack_name="64bit Amazon Linux 2023 v4.0.10 running Python 3.9",
+            solution_stack_name="64bit Amazon Linux 2023 v4.3.1 running Python 3.12",
             option_settings=[
                 role_option_setting,
                 *rolling_update_settings
