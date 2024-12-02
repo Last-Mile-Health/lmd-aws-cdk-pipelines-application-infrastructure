@@ -161,7 +161,7 @@ class BeanstalkStack(Stack):
         environment = elasticbeanstalk.CfnEnvironment(
             self, f'{id}-portal-services-environment',
             application_name=application.application_name,
-            environment_name=f'{target_environment}-portal-services-environment',
+            environment_name=f'{target_environment}-portal-services',
             solution_stack_name="64bit Amazon Linux 2023 v4.3.1 running Python 3.12",
             option_settings=[
                 role_option_setting,
