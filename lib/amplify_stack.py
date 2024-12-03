@@ -2,12 +2,15 @@ from aws_cdk import Stack, SecretValue
 from aws_cdk import aws_codebuild as codebuild
 from aws_cdk import aws_amplify_alpha as amplify_alpha  # amplify is being updated constantly
 from constructs import Construct
+from aws_cdk import Stack, SecretValue, CfnOutput
 
 from .configuration import (
     DEPLOYMENT,
     AMPLIFY_GITHUB_REPOSITORY_NAME,
+    DEV,
     GITHUB_REPOSITORY_OWNER_NAME,
     AMPLIFY_GITHUB_TOKEN,
+    PROD,
     get_all_configurations,
 )
 
@@ -23,7 +26,8 @@ class AmplifyStack(Stack):
 
         amplify_app = amplify_alpha.App(
             self,
-            f"{target_environment}-app",
+            f"lmd-{target_environment}-app",
+            app_name=f"lmd-{target_environment}-app",
             platform=amplify_alpha.Platform.WEB_COMPUTE,
             source_code_provider=amplify_alpha.GitHubSourceCodeProvider(
                 owner=self.mappings[DEPLOYMENT][GITHUB_REPOSITORY_OWNER_NAME],
@@ -34,7 +38,6 @@ class AmplifyStack(Stack):
             ),
             build_spec=codebuild.BuildSpec.from_object_to_yaml(
                 {
-                    # Alternatively add a `amplify.yml` to the repo
                     "version": "1.0",
                     "frontend": {
                         "phases": {
@@ -46,4 +49,35 @@ class AmplifyStack(Stack):
                     },
                 }
             ),
+
+        )
+
+        if target_environment == DEV:
+            main_branch = amplify_app.add_branch(
+                "main",
+                auto_build=True,
+                branch_name="main",
+                pull_request_preview=False,
+            )
+
+        elif target_environment == PROD:
+            prod_branch = amplify_app.add_branch(
+                "prod",
+                auto_build=True,
+                branch_name="prod",
+                pull_request_preview=False,
+            )
+
+        CfnOutput(
+            self,
+            f"{target_environment}-amplify-app-id",
+            value=amplify_app.app_id,
+            description="Amplify App ID",
+        )
+
+        CfnOutput(
+            self,
+            f"{target_environment}-amplify-app-url",
+            value=amplify_app.default_domain,
+            description="Amplify App URL",
         )
