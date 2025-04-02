@@ -5,6 +5,7 @@ from constructs import Construct
 from .amplify_stack import AmplifyStack
 from .cognito_stack import CognitoStack
 from .beanstalk_stack import BeanstalkStack
+from .apprunner_stack import AppRunnerStack
 
 
 class PipelineDeployStage(Stage):
@@ -45,7 +46,15 @@ class PipelineDeployStage(Stage):
             **kwargs,
         )
 
+        app_runner_stack = AppRunnerStack(
+            self,
+            f"{target_environment}-apprunner",
+            target_environment=target_environment,
+            **kwargs,
+        )
+
         # Tag the backend_service and amplify_stack with the target_environment
         tag(amplify_stack, target_environment)
         tag(cognito_stack, target_environment)
         tag(beanstalk_stack, target_environment)
+        tag(app_runner_stack, target_environment)
