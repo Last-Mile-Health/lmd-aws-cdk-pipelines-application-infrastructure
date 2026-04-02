@@ -18,7 +18,10 @@ class AuroraPostgresStack(Stack):
         vpc = ec2.Vpc(
             self,
             f"{id}-vpc",
-            max_azs=2,
+            availability_zones=[
+                f"{self.region}a",
+                f"{self.region}b",
+            ],
         )
 
         security_group = ec2.SecurityGroup(
@@ -52,10 +55,10 @@ class AuroraPostgresStack(Stack):
             ),
             cluster_identifier=f"{target_environment.lower()}-lmd-portal-database",
             credentials=rds.Credentials.from_secret(db_secret),
-            writer=rds.ClusterInstance.serverless_v2(f"{id}-writer"),
+            writer=rds.ClusterInstance.serverless_v2(f"{id}-writer", publicly_accessible=True),
             readers=[
                 rds.ClusterInstance.serverless_v2(
-                    f"{id}-reader", scale_with_writer=True
+                    f"{id}-reader", scale_with_writer=True, publicly_accessible=True
                 )
             ],
             serverless_v2_min_capacity=0.5,
@@ -63,7 +66,6 @@ class AuroraPostgresStack(Stack):
             security_groups=[security_group],
             vpc=vpc,
             vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
-            publicly_accessible=True,
             default_database_name="master",
             removal_policy=RemovalPolicy.SNAPSHOT,
         )
