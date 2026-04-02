@@ -71,6 +71,7 @@ class PipelineStack(cdk.Stack):
                     ],
                     resources=[
                         f'arn:aws:secretsmanager:{self.region}:{self.account}:secret:/DataLake/*',
+                        f'arn:aws:secretsmanager:{self.region}:{self.account}:secret:GITHUB_ARN-*',
                     ],
                 ),
                 iam.PolicyStatement(
@@ -112,7 +113,7 @@ class PipelineStack(cdk.Stack):
                     resources=[
                         '*',
                     ],
-                )
+                ),
             ]
         )
 

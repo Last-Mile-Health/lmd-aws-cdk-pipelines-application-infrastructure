@@ -7,8 +7,6 @@ import aws_cdk.aws_apprunner_alpha as apprunner
 
 from constructs import Construct
 
-import boto3
-
 from .configuration import GITHUB_REPOSITORY_NAME, GITHUB_REPOSITORY_OWNER_NAME
 
 
@@ -28,6 +26,19 @@ class AppRunnerStack(Stack):
         instance_role.add_managed_policy(
             iam.ManagedPolicy.from_aws_managed_policy_name("AWSAppRunnerServicePolicyForECRAccess")
         )
+
+        # Create an IAM policy for Secrets Manager access
+        secrets_policy = iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=[
+                "secretsmanager:ListSecrets",
+                "secretsmanager:GetSecretValue"
+            ],
+            resources=["*"]  # You can restrict this to specific secret ARNs for better security
+        )
+
+        # Add the policy to your instance role
+        instance_role.add_to_policy(secrets_policy)
 
         # Define environment variables
         environment_variables = {
@@ -82,6 +93,7 @@ class AppRunnerStack(Stack):
         )
 
     def get_github_connection(self):
+        import boto3
         client = boto3.client('secretsmanager')
         secrets = []
         response = client.list_secrets()
@@ -89,8 +101,9 @@ class AppRunnerStack(Stack):
         while 'NextToken' in response:
             response = client.list_secrets(NextToken=response['NextToken'])
             secrets.extend(response['SecretList'])
+
         arn = next(
-            secret for secret in secrets if 'GITHUB_ARN' in secret['Name'].strip().lower())
+            secret for secret in secrets if 'github_arn' in secret['Name'].strip().lower())
         get_secret_value_response = client.get_secret_value(
             SecretId=arn['Name']
         )
