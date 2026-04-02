@@ -44,7 +44,7 @@ class AuroraPostgresStack(Stack):
             self,
             f"{id}-aurora-cluster",
             engine=rds.DatabaseClusterEngine.aurora_postgres(
-                version=rds.AuroraPostgresEngineVersion.VER_15_4
+                version=rds.AuroraPostgresEngineVersion.VER_15_8
             ),
             cluster_identifier=f"{target_environment.lower()}-lmd-portal-database",
             credentials=rds.Credentials.from_secret(db_secret),
