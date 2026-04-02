@@ -100,7 +100,7 @@ def get_local_configuration(environment: str) -> dict:
             ACCOUNT_ID: "301323023124",
             REGION: "us-east-1",
             VPC_CIDR: "10.0.0.0/24",
-            VPC_ID: "<prod-vpc-id>",
+            VPC_ID: "vpc-00ca90a9e4328ba87",
             AMPLIFY_GITHUB_TOKEN: "/Amplify/GitHubToken",
         },
     }
