@@ -6,6 +6,7 @@ from .cognito_stack import CognitoStack
 from .beanstalk_stack import BeanstalkStack
 from .apprunner_stack import AppRunnerStack
 from .aurora_postgres_stack import AuroraPostgresStack
+from .configuration import get_environment_configuration, VPC_ID
 
 
 class PipelineDeployStage(Stage):
@@ -68,6 +69,7 @@ class PipelineDeployStage(Stage):
             self,
             f"{target_environment}-aurora-postgres",
             target_environment=target_environment,
+            vpc_id=get_environment_configuration(target_environment)[VPC_ID],
             **kwargs,
         )
         tag(aurora_stack, target_environment)

@@ -11,18 +11,11 @@ from constructs import Construct
 
 class AuroraPostgresStack(Stack):
     def __init__(
-        self, scope: Construct, id: str, target_environment: str, **kwargs
+        self, scope: Construct, id: str, target_environment: str, vpc_id: str, **kwargs
     ) -> None:
         super().__init__(scope, id, **kwargs)
 
-        vpc = ec2.Vpc(
-            self,
-            f"{id}-vpc",
-            availability_zones=[
-                f"{self.region}a",
-                f"{self.region}b",
-            ],
-        )
+        vpc = ec2.Vpc.from_lookup(self, f"{id}-vpc", vpc_id=vpc_id)
 
         security_group = ec2.SecurityGroup(
             self,
@@ -55,7 +48,9 @@ class AuroraPostgresStack(Stack):
             ),
             cluster_identifier=f"{target_environment.lower()}-lmd-portal-database",
             credentials=rds.Credentials.from_secret(db_secret),
-            writer=rds.ClusterInstance.serverless_v2(f"{id}-writer", publicly_accessible=True),
+            writer=rds.ClusterInstance.serverless_v2(
+                f"{id}-writer", publicly_accessible=True
+            ),
             readers=[
                 rds.ClusterInstance.serverless_v2(
                     f"{id}-reader", scale_with_writer=True, publicly_accessible=True
