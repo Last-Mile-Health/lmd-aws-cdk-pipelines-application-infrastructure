@@ -6,8 +6,8 @@ aws-cdk.asset-node-proxy-agent-v6==2.1.0
 aws-cdk.aws-amplify-alpha==2.133.0a0
 aws-cdk.aws-apprunner-alpha==2.187.0a0
 aws-cdk.cloud-assembly-schema==41.2.0
-boto3==1.17.112
-botocore==1.20.112
+boto3==1.35.0
+botocore==1.35.0
 cattrs==23.2.3
 cfgv==3.4.0
 constructs==10.3.0
@@ -15,7 +15,7 @@ distlib==0.3.8
 filelock==3.13.3
 identify==2.5.35
 importlib_resources==6.4.0
-jmespath==0.10.0
+jmespath==1.0.1
 jsii==1.110.0
 nodeenv==1.8.0
 platformdirs==4.2.0
@@ -23,7 +23,7 @@ pre-commit==3.7.0
 publication==0.0.3
 python-dateutil==2.9.0.post0
 PyYAML==6.0.1
-s3transfer==0.4.2
+s3transfer==0.10.0
 setuptools==69.2.0
 six==1.16.0
 typeguard==2.13.3
