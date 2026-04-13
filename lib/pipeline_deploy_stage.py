@@ -6,6 +6,7 @@ from .cognito_stack import CognitoStack
 from .beanstalk_stack import BeanstalkStack
 from .apprunner_stack import AppRunnerStack
 from .aurora_postgres_stack import AuroraPostgresStack
+from .iam_user_stack import IamUserStack
 from .configuration import get_environment_configuration, VPC_ID
 
 
@@ -59,17 +60,24 @@ class PipelineDeployStage(Stage):
                 **kwargs,
             )
 
+            aurora_stack = AuroraPostgresStack(
+                self,
+                f"{target_environment}-aurora-postgres",
+                target_environment=target_environment,
+                vpc_id=get_environment_configuration(target_environment)[VPC_ID],
+                **kwargs,
+            )
+            tag(aurora_stack, target_environment)
             # Tag the backend_service and amplify_stack with the target_environment
             tag(amplify_stack, target_environment)
             tag(cognito_stack, target_environment)
             tag(beanstalk_stack, target_environment)
             tag(app_runner_stack, target_environment)
 
-        aurora_stack = AuroraPostgresStack(
+        iam_user_stack = IamUserStack(
             self,
-            f"{target_environment}-aurora-postgres",
+            f"{target_environment}-iam-user",
             target_environment=target_environment,
-            vpc_id=get_environment_configuration(target_environment)[VPC_ID],
             **kwargs,
         )
-        tag(aurora_stack, target_environment)
+        tag(iam_user_stack, target_environment)
