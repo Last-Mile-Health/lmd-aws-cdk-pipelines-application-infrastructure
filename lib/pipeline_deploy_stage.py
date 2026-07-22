@@ -7,6 +7,7 @@ from .beanstalk_stack import BeanstalkStack
 from .apprunner_stack import AppRunnerStack
 from .aurora_postgres_stack import AuroraPostgresStack
 from .iam_user_stack import IamUserStack
+from .ecs_express_stack import EcsExpressStack
 from .configuration import get_environment_configuration, VPC_ID
 
 
@@ -67,6 +68,14 @@ class PipelineDeployStage(Stage):
                 vpc_id=get_environment_configuration(target_environment)[VPC_ID],
                 **kwargs,
             )
+            iam_user_stack = IamUserStack(
+                self,
+                f"{target_environment}-iam-user",
+                target_environment=target_environment,
+                **kwargs,
+            )
+            tag(iam_user_stack, target_environment)
+
             tag(aurora_stack, target_environment)
             # Tag the backend_service and amplify_stack with the target_environment
             tag(amplify_stack, target_environment)
@@ -74,10 +83,13 @@ class PipelineDeployStage(Stage):
             tag(beanstalk_stack, target_environment)
             tag(app_runner_stack, target_environment)
 
-        iam_user_stack = IamUserStack(
+        # Create the ECS express mode stack: ECR -> GitHub-connected CodePipeline -> ECS Fargate service
+        # Uses the same VPC as the Aurora Postgres database so the service can reach it directly.
+        ecs_express_stack = EcsExpressStack(
             self,
-            f"{target_environment}-iam-user",
+            f"{target_environment}-ecs-express",
             target_environment=target_environment,
+            vpc_id=get_environment_configuration(target_environment)[VPC_ID],
             **kwargs,
         )
-        tag(iam_user_stack, target_environment)
+        tag(ecs_express_stack, target_environment)
