@@ -234,8 +234,9 @@ class AgentAppRunnerStack(Stack):
             ),
             access_role=access_role,
             instance_role=instance_role,
-            cpu=apprunner.Cpu.QUARTER_VCPU,
-            memory=apprunner.Memory.TWO_GB,
+            # 1 vCPU / 3 GB memory.
+            cpu=apprunner.Cpu.ONE_VCPU,
+            memory=apprunner.Memory.THREE_GB,
             health_check=apprunner.HealthCheck.http(
                 path="/",
                 interval=Duration.seconds(15),

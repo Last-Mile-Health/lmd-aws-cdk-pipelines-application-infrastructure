@@ -237,10 +237,9 @@ class AppRunnerDockerStack(Stack):
             ),
             access_role=access_role,
             instance_role=instance_role,
-            # 0.25 vCPU / 2 GB memory -- matches the previous ECS task sizing
-            # (256 CPU units / 2048 MiB) and is a valid App Runner combination.
-            cpu=apprunner.Cpu.QUARTER_VCPU,
-            memory=apprunner.Memory.TWO_GB,
+            # 1 vCPU / 3 GB memory.
+            cpu=apprunner.Cpu.ONE_VCPU,
+            memory=apprunner.Memory.THREE_GB,
             health_check=apprunner.HealthCheck.http(
                 path="/",
                 interval=Duration.seconds(15),
