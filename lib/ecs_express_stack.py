@@ -37,7 +37,10 @@ class EcsExpressStack(Stack):
 
         self.mappings = get_all_configurations()
         resource_prefix = get_resource_name_prefix()
-        branch = "main" if target_environment.lower() == "dev" else target_environment.lower()
+        # Dev tracks the actively-developed "modeling" branch; Test and Prod
+        # track their own environment-named branches (e.g. "test", "prod"),
+        # same convention used by the other GitHub-connected stacks.
+        branch = "modeling" if target_environment.lower() == "dev" else target_environment.lower()
         service_name = f'{target_environment.lower()}-{resource_prefix}-ecs-express'
 
         # 1. ECR repository -- the single source of truth for container images.
@@ -84,7 +87,9 @@ class EcsExpressStack(Stack):
             service_name=service_name,
             cluster=cluster,
             cpu=256,
-            memory_limit_mib=512,
+            # 2048 MiB (2 GB) is the maximum memory allowed for 256 CPU units
+            # in Fargate; bump cpu to 512+ if more headroom is needed later.
+            memory_limit_mib=2048,
             desired_count=1,
             public_load_balancer=True,
             task_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
@@ -92,7 +97,7 @@ class EcsExpressStack(Stack):
             task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
                 image=ecs.ContainerImage.from_registry("amazon/amazon-ecs-sample"),
                 container_name="web",
-                container_port=80,
+                container_port=5005,
                 environment={
                     "ENVIRONMENT": target_environment,
 
