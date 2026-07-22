@@ -18,6 +18,7 @@ GITHUB_REPOSITORY_NAME = "lmd-aws-cdk-pipelines-application-infrastructure"
 ADMIN_EMAIL = "bmwalwanda@lastmilehealth.org"
 AMPLIFY_GITHUB_REPOSITORY_NAME = "lmd-portal-UI"
 SERVICE_GITHUB_REPOSITORY_NAME = "lmd-portal-services"
+ECS_GITHUB_REPOSITORY_NAME = "lmd-portal-services"
 AMPLIFY_GITHUB_TOKEN = "token"
 
 ACCOUNT_ID = "829553079673"
@@ -73,9 +74,10 @@ def get_local_configuration(environment: str) -> dict:
             REGION: "us-east-1",
             GITHUB_REPOSITORY_OWNER_NAME: "Last-Mile-Health",
             GITHUB_REPOSITORY_NAME: "lmd-aws-cdk-pipelines-application-infrastructure",
-            AMPLIFY_GITHUB_REPOSITORY_NAME: "LastMileData2",
             AMPLIFY_GITHUB_REPOSITORY_NAME: "lmd-portal-UI",
             SERVICE_GITHUB_REPOSITORY_NAME: "lmd-portal-services",
+            # TODO: point this at the GitHub repo containing the Dockerfile for the ECS express service.
+            ECS_GITHUB_REPOSITORY_NAME: "lmd-portal-services",
             LOGICAL_ID_PREFIX: "LMDCDKApplication",
             RESOURCE_NAME_PREFIX: "lmd-application",
             COGNITO_CALLBACK_URLS: "https://main.d1gfzcw5a606s8.amplifyapp.com/",
