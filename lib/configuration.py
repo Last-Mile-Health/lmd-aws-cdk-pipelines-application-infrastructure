@@ -19,6 +19,7 @@ ADMIN_EMAIL = "bmwalwanda@lastmilehealth.org"
 AMPLIFY_GITHUB_REPOSITORY_NAME = "lmd-portal-UI"
 SERVICE_GITHUB_REPOSITORY_NAME = "lmd-portal-services"
 APPRUNNER_DOCKER_GITHUB_REPOSITORY_NAME = "apprunner_docker_github_repository_name"
+AGENT_GITHUB_REPOSITORY_NAME = "agent_github_repository_name"
 AMPLIFY_GITHUB_TOKEN = "token"
 
 ACCOUNT_ID = "829553079673"
@@ -78,6 +79,8 @@ def get_local_configuration(environment: str) -> dict:
             SERVICE_GITHUB_REPOSITORY_NAME: "lmd-portal-services",
             # TODO: point this at the GitHub repo containing the Dockerfile for the App Runner Docker service.
             APPRUNNER_DOCKER_GITHUB_REPOSITORY_NAME: "lmd-portal-services",
+            # TODO: point this at the GitHub repo containing the Dockerfile for the agent service.
+            AGENT_GITHUB_REPOSITORY_NAME: "lmd-2-agent",
             LOGICAL_ID_PREFIX: "LMDCDKApplication",
             RESOURCE_NAME_PREFIX: "lmd-application",
             COGNITO_CALLBACK_URLS: "https://main.d1gfzcw5a606s8.amplifyapp.com/",
