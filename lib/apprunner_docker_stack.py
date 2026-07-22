@@ -208,7 +208,7 @@ class AppRunnerDockerStack(Stack):
                         "DB_NAME": "",
                         "DB_USERNAME": "",
                         "DB_PASS": "",
-                        "DB_PORT": "3306",
+                        "DB_PORT": "",
 
                         # Storage / integrations
                         "S3_UPLOAD_BUCKET": "",
