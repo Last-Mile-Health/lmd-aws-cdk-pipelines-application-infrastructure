@@ -1,4 +1,3 @@
-import aws_cdk as cdk
 from aws_cdk import (
     Stack,
     Duration,
@@ -14,8 +13,8 @@ import aws_cdk.aws_apprunner_alpha as apprunner
 from constructs import Construct
 
 from .configuration import (
-    AGENT_GITHUB_REPOSITORY_NAME, DEPLOYMENT, GITHUB_REPOSITORY_OWNER_NAME, GITHUB_TOKEN,
-    get_all_configurations, get_resource_name_prefix
+    AGENT_GITHUB_REPOSITORY_NAME, CODESTAR_CONNECTION_ARN, DEPLOYMENT,
+    GITHUB_REPOSITORY_OWNER_NAME, get_all_configurations, get_resource_name_prefix
 )
 
 
@@ -127,16 +126,13 @@ class AgentAppRunnerStack(Stack):
         pipeline.add_stage(
             stage_name="Source",
             actions=[
-                codepipeline_actions.GitHubSourceAction(
+                codepipeline_actions.CodeStarConnectionsSourceAction(
                     action_name="GitHub_Source",
                     owner=repo_owner,
                     repo=repo_name,
                     branch=branch,
-                    oauth_token=cdk.SecretValue.secrets_manager(
-                        self.mappings[target_environment][GITHUB_TOKEN]
-                    ),
+                    connection_arn=self.mappings[target_environment][CODESTAR_CONNECTION_ARN],
                     output=source_artifact,
-                    trigger=codepipeline_actions.GitHubTrigger.WEBHOOK,
                 )
             ],
         )
