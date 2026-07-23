@@ -46,7 +46,8 @@ class AgentAppRunnerStack(Stack):
             self, "AgentRepository",
             repository_name=service_name,
             image_scan_on_push=True,
-            removal_policy=RemovalPolicy.RETAIN,
+            removal_policy=RemovalPolicy.DESTROY,
+            empty_on_delete=True,
             lifecycle_rules=[
                 ecr.LifecycleRule(
                     description="Expire untagged images after 14 days",
