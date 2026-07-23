@@ -1,7 +1,6 @@
 from aws_cdk import (
     Stack,
     Duration,
-    RemovalPolicy,
     CfnOutput,
     aws_ecr as ecr,
     aws_iam as iam,
@@ -41,25 +40,19 @@ class AgentAppRunnerStack(Stack):
         branch = "modeling" if target_environment.lower() == "dev" else target_environment.lower()
         service_name = f'{target_environment.lower()}-{resource_prefix}-agent'
 
-        # 1. ECR repository -- the single source of truth for container images.
-        repository = ecr.Repository(
+        # 1. ECR repository -- imported rather than created/destroyed by this
+        # stack. Keeping the repo's lifecycle independent of the stack avoids
+        # two problems: (a) recreation collisions ('repository already
+        # exists') if this stack is ever deleted and redeployed, and (b) the
+        # chicken-and-egg bootstrap problem where a brand-new, empty repo has
+        # no image yet when CloudFormation tries to create the App Runner
+        # service, causing a guaranteed CREATE_FAILED (NotStabilized) on first
+        # deploy. Create the repo once out-of-band and seed it with an initial
+        # image before deploying this stack -- see README/runbook for the
+        # one-time bootstrap commands.
+        repository = ecr.Repository.from_repository_name(
             self, "AgentRepository",
             repository_name=service_name,
-            image_scan_on_push=True,
-            removal_policy=RemovalPolicy.DESTROY,
-            empty_on_delete=True,
-            lifecycle_rules=[
-                ecr.LifecycleRule(
-                    description="Expire untagged images after 14 days",
-                    tag_status=ecr.TagStatus.UNTAGGED,
-                    max_image_age=Duration.days(14),
-                ),
-                ecr.LifecycleRule(
-                    description="Keep only the last 20 tagged images",
-                    tag_status=ecr.TagStatus.ANY,
-                    max_image_count=20,
-                ),
-            ],
         )
 
         # 2. CI/CD: GitHub -> CodeBuild (docker build & push to ECR).
