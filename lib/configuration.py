@@ -115,7 +115,7 @@ def get_local_configuration(environment: str) -> dict:
             VPC_ID: "vpc-00ca90a9e4328ba87",
             AMPLIFY_GITHUB_TOKEN: "/Amplify/GitHubToken",
             # TODO: replace with the CodeConnections connection ARN created in the Prod account.
-            CODESTAR_CONNECTION_ARN: "<prod-codestar-connection-arn>",
+            CODESTAR_CONNECTION_ARN: "arn:aws:codeconnections:us-east-1:301323023124:connection/1ccbadb7-23b7-4e5e-9e12-5dd791e30200",
         },
     }
 
