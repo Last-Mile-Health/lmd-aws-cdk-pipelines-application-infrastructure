@@ -7,6 +7,8 @@ from .beanstalk_stack import BeanstalkStack
 from .apprunner_stack import AppRunnerStack
 from .aurora_postgres_stack import AuroraPostgresStack
 from .iam_user_stack import IamUserStack
+from .apprunner_docker_stack import AppRunnerDockerStack
+from .agent_apprunner_stack import AgentAppRunnerStack
 from .configuration import get_environment_configuration, VPC_ID
 
 
@@ -67,6 +69,14 @@ class PipelineDeployStage(Stage):
                 vpc_id=get_environment_configuration(target_environment)[VPC_ID],
                 **kwargs,
             )
+            iam_user_stack = IamUserStack(
+                self,
+                f"{target_environment}-iam-user",
+                target_environment=target_environment,
+                **kwargs,
+            )
+            tag(iam_user_stack, target_environment)
+
             tag(aurora_stack, target_environment)
             # Tag the backend_service and amplify_stack with the target_environment
             tag(amplify_stack, target_environment)
@@ -74,10 +84,21 @@ class PipelineDeployStage(Stage):
             tag(beanstalk_stack, target_environment)
             tag(app_runner_stack, target_environment)
 
-        iam_user_stack = IamUserStack(
+        # Create the App Runner Docker stack (backend service): ECR -> GitHub-connected CodePipeline -> App Runner service
+        apprunner_docker_stack = AppRunnerDockerStack(
             self,
-            f"{target_environment}-iam-user",
+            f"{target_environment}-apprunner-docker",
             target_environment=target_environment,
             **kwargs,
         )
-        tag(iam_user_stack, target_environment)
+        tag(apprunner_docker_stack, target_environment)
+
+        # Create the agent (lmd-2-agent) App Runner stack: same approach as
+        # AppRunnerDockerStack, but sourced from its own GitHub/ECR repositories.
+        agent_apprunner_stack = AgentAppRunnerStack(
+            self,
+            f"{target_environment}-agent-apprunner",
+            target_environment=target_environment,
+            **kwargs,
+        )
+        tag(agent_apprunner_stack, target_environment)

@@ -18,6 +18,8 @@ GITHUB_REPOSITORY_NAME = "lmd-aws-cdk-pipelines-application-infrastructure"
 ADMIN_EMAIL = "bmwalwanda@lastmilehealth.org"
 AMPLIFY_GITHUB_REPOSITORY_NAME = "lmd-portal-UI"
 SERVICE_GITHUB_REPOSITORY_NAME = "lmd-portal-services"
+APPRUNNER_DOCKER_GITHUB_REPOSITORY_NAME = "apprunner_docker_github_repository_name"
+AGENT_GITHUB_REPOSITORY_NAME = "agent_github_repository_name"
 AMPLIFY_GITHUB_TOKEN = "token"
 
 ACCOUNT_ID = "829553079673"
@@ -39,6 +41,9 @@ COGNITO_LOGOUT_URLS = "cognito_logout_urls"
 GITHUB_TOKEN = "github_token"
 DB_USERNAME = "db_username"
 DB_PASSWORD = "db_password"
+
+# CodeConnections (GitHub App) connection ARN -- one per target account.
+CODESTAR_CONNECTION_ARN = "codestar_connection_arn"
 
 # Used in Automated Outputs
 VPC_ID = "vpc_id"
@@ -73,9 +78,12 @@ def get_local_configuration(environment: str) -> dict:
             REGION: "us-east-1",
             GITHUB_REPOSITORY_OWNER_NAME: "Last-Mile-Health",
             GITHUB_REPOSITORY_NAME: "lmd-aws-cdk-pipelines-application-infrastructure",
-            AMPLIFY_GITHUB_REPOSITORY_NAME: "LastMileData2",
             AMPLIFY_GITHUB_REPOSITORY_NAME: "lmd-portal-UI",
             SERVICE_GITHUB_REPOSITORY_NAME: "lmd-portal-services",
+            # TODO: point this at the GitHub repo containing the Dockerfile for the App Runner Docker service.
+            APPRUNNER_DOCKER_GITHUB_REPOSITORY_NAME: "lmd-portal-services",
+            # TODO: point this at the GitHub repo containing the Dockerfile for the agent service.
+            AGENT_GITHUB_REPOSITORY_NAME: "lmd-2-agent",
             LOGICAL_ID_PREFIX: "LMDCDKApplication",
             RESOURCE_NAME_PREFIX: "lmd-application",
             COGNITO_CALLBACK_URLS: "https://main.d1gfzcw5a606s8.amplifyapp.com/",
@@ -88,6 +96,8 @@ def get_local_configuration(environment: str) -> dict:
             VPC_CIDR: "10.20.0.0/24",
             VPC_ID: "vpc-07cadb1b81f19978e",
             AMPLIFY_GITHUB_TOKEN: "/Amplify/GitHubToken",
+            # TODO: replace with the CodeConnections connection ARN created in the Dev account.
+            CODESTAR_CONNECTION_ARN: "arn:aws:codestar-connections:us-east-1:002190277880:connection/1fc06fff-185c-4132-bcdf-ae90677c985f",
         },
         TEST: {
             ACCOUNT_ID: "576140831944",
@@ -95,6 +105,8 @@ def get_local_configuration(environment: str) -> dict:
             VPC_CIDR: "10.10.0.0/24",
             VPC_ID: "<test-vpc-id>",
             AMPLIFY_GITHUB_TOKEN: "/Amplify/GitHubToken",
+            # TODO: replace with the CodeConnections connection ARN created in the Test account.
+            CODESTAR_CONNECTION_ARN: "<test-codestar-connection-arn>",
         },
         PROD: {
             ACCOUNT_ID: "301323023124",
@@ -102,6 +114,8 @@ def get_local_configuration(environment: str) -> dict:
             VPC_CIDR: "10.0.0.0/24",
             VPC_ID: "vpc-00ca90a9e4328ba87",
             AMPLIFY_GITHUB_TOKEN: "/Amplify/GitHubToken",
+            # TODO: replace with the CodeConnections connection ARN created in the Prod account.
+            CODESTAR_CONNECTION_ARN: "arn:aws:codeconnections:us-east-1:301323023124:connection/1ccbadb7-23b7-4e5e-9e12-5dd791e30200",
         },
     }
 
