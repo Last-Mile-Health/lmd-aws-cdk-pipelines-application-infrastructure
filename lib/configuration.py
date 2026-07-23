@@ -42,6 +42,9 @@ GITHUB_TOKEN = "github_token"
 DB_USERNAME = "db_username"
 DB_PASSWORD = "db_password"
 
+# CodeConnections (GitHub App) connection ARN -- one per target account.
+CODESTAR_CONNECTION_ARN = "codestar_connection_arn"
+
 # Used in Automated Outputs
 VPC_ID = "vpc_id"
 AVAILABILITY_ZONE_1 = "availability_zone_1"
@@ -93,6 +96,8 @@ def get_local_configuration(environment: str) -> dict:
             VPC_CIDR: "10.20.0.0/24",
             VPC_ID: "vpc-07cadb1b81f19978e",
             AMPLIFY_GITHUB_TOKEN: "/Amplify/GitHubToken",
+            # TODO: replace with the CodeConnections connection ARN created in the Dev account.
+            CODESTAR_CONNECTION_ARN: "arn:aws:codestar-connections:us-east-1:002190277880:connection/1fc06fff-185c-4132-bcdf-ae90677c985f",
         },
         TEST: {
             ACCOUNT_ID: "576140831944",
@@ -100,6 +105,8 @@ def get_local_configuration(environment: str) -> dict:
             VPC_CIDR: "10.10.0.0/24",
             VPC_ID: "<test-vpc-id>",
             AMPLIFY_GITHUB_TOKEN: "/Amplify/GitHubToken",
+            # TODO: replace with the CodeConnections connection ARN created in the Test account.
+            CODESTAR_CONNECTION_ARN: "<test-codestar-connection-arn>",
         },
         PROD: {
             ACCOUNT_ID: "301323023124",
@@ -107,6 +114,8 @@ def get_local_configuration(environment: str) -> dict:
             VPC_CIDR: "10.0.0.0/24",
             VPC_ID: "vpc-00ca90a9e4328ba87",
             AMPLIFY_GITHUB_TOKEN: "/Amplify/GitHubToken",
+            # TODO: replace with the CodeConnections connection ARN created in the Prod account.
+            CODESTAR_CONNECTION_ARN: "<prod-codestar-connection-arn>",
         },
     }
 
