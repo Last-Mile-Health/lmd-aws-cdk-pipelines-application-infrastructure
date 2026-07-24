@@ -35,9 +35,9 @@ class AgentAppRunnerStack(Stack):
 
         self.mappings = get_all_configurations()
         resource_prefix = get_resource_name_prefix()
-        # Dev tracks the actively-developed "modeling" branch; Test and Prod
-        # track their own environment-named branches (e.g. "test", "prod").
-        branch = "modeling" if target_environment.lower() == "dev" else target_environment.lower()
+        # Dev deploys from "main"; Test and Prod track their own
+        # environment-named branches (e.g. "test", "prod").
+        branch = "main" if target_environment.lower() == "dev" else target_environment.lower()
         service_name = f'{target_environment.lower()}-{resource_prefix}-agent'
 
         # 1. ECR repository -- imported rather than created/destroyed by this
