@@ -55,8 +55,11 @@ class PipelineStack(cdk.Stack):
         logical_id_prefix = get_logical_id_prefix()
         resource_name_prefix = get_resource_name_prefix()
 
+        # STANDARD_7_0 matches the image the live Dev/Prod pipeline projects
+        # have run on since 2026-04 (set outside CDK). STANDARD_5_0's Node 14
+        # can't run the current aws-cdk CLI that the synth step installs.
         code_build_env = CodeBuild.BuildEnvironment(
-            build_image=CodeBuild.LinuxBuildImage.STANDARD_5_0,
+            build_image=CodeBuild.LinuxBuildImage.STANDARD_7_0,
             privileged=False
         )
 
