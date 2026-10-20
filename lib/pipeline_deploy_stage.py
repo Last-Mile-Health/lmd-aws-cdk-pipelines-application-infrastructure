@@ -9,7 +9,8 @@ from .aurora_postgres_stack import AuroraPostgresStack
 from .iam_user_stack import IamUserStack
 from .apprunner_docker_stack import AppRunnerDockerStack
 from .agent_apprunner_stack import AgentAppRunnerStack
-from .configuration import get_environment_configuration, VPC_ID
+from .portal_fast_stack import PortalFastStack
+from .configuration import get_environment_configuration, PORTAL_FAST_ENABLED, VPC_ID
 
 
 class PipelineDeployStage(Stage):
@@ -102,3 +103,14 @@ class PipelineDeployStage(Stage):
             **kwargs,
         )
         tag(agent_apprunner_stack, target_environment)
+
+        # lmd-portal-services FastAPI (modeling line), alongside the legacy
+        # API. Outside the aurora_only block so it deploys with the flag on.
+        if get_environment_configuration(target_environment).get(PORTAL_FAST_ENABLED):
+            portal_fast_stack = PortalFastStack(
+                self,
+                f"{target_environment}-portal-fast",
+                target_environment=target_environment,
+                **kwargs,
+            )
+            tag(portal_fast_stack, target_environment)
