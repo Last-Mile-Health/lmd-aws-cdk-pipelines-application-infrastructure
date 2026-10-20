@@ -24,3 +24,4 @@ bin/
 pyvenv.cfg
 
 .venv/
+.aws-temp-creds-*
