@@ -81,10 +81,19 @@ class PortalFastStack(Stack):
             removal_policy=RemovalPolicy.RETAIN,
             lifecycle_rules=[
                 ecr.LifecycleRule(
+                    rule_priority=1,
                     description="Expire untagged images after 30 days",
                     tag_status=ecr.TagStatus.UNTAGGED,
                     max_image_age=Duration.days(30),
-                )
+                ),
+                # The Prod workflow also tags each image <tag>-<commit sha>.
+                ecr.LifecycleRule(
+                    rule_priority=2,
+                    description="Keep the last 30 commit-tagged images",
+                    tag_status=ecr.TagStatus.TAGGED,
+                    tag_prefix_list=[f"{image_tag}-"],
+                    max_image_count=30,
+                ),
             ],
         )
 
