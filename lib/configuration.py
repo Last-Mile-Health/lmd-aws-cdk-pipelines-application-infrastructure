@@ -45,6 +45,24 @@ DB_PASSWORD = "db_password"
 # CodeConnections (GitHub App) connection ARN -- one per target account.
 CODESTAR_CONNECTION_ARN = "codestar_connection_arn"
 
+# lmd-portal-services FastAPI service (PortalFastStack) -- see
+# docs/plans/2026-10-14-prod-portal-fast-stack-plan.md.
+PORTAL_FAST_ENABLED = "portal_fast_enabled"
+# Two-pass bootstrap: App Runner can't be created before an image exists in
+# the ECR repo this stack creates. Deploy with False, push the first image,
+# then flip to True.
+PORTAL_FAST_CREATE_SERVICE = "portal_fast_create_service"
+PORTAL_FAST_IMAGE_TAG = "portal_fast_image_tag"
+PORTAL_FAST_GITHUB_ENVIRONMENT = "portal_fast_github_environment"
+PORTAL_FAST_CORS_ORIGINS = "portal_fast_cors_origins"
+PORTAL_FAST_UPLOAD_BUCKET = "portal_fast_upload_bucket"
+PORTAL_FAST_EVENTS_TABLE = "portal_fast_events_table"
+# Full ARNs (App Runner needs the full ARN, incl. the random suffix).
+AURORA_SECRET_ARN = "aurora_secret_arn"
+REDSHIFT_HOST = "redshift_host"
+REDSHIFT_USER = "redshift_user"
+REDSHIFT_PASSWORD_SECRET_ARN = "redshift_password_secret_arn"
+
 # Used in Automated Outputs
 VPC_ID = "vpc_id"
 AVAILABILITY_ZONE_1 = "availability_zone_1"
@@ -116,6 +134,27 @@ def get_local_configuration(environment: str) -> dict:
             AMPLIFY_GITHUB_TOKEN: "/Amplify/GitHubToken",
             # TODO: replace with the CodeConnections connection ARN created in the Prod account.
             CODESTAR_CONNECTION_ARN: "arn:aws:codeconnections:us-east-1:301323023124:connection/d4846def-1b57-4c84-a1a3-e59180a704e0",
+            PORTAL_FAST_ENABLED: True,
+            PORTAL_FAST_CREATE_SERVICE: False,
+            PORTAL_FAST_IMAGE_TAG: "modeling_prod",
+            PORTAL_FAST_GITHUB_ENVIRONMENT: "prod",
+            PORTAL_FAST_CORS_ORIGINS: [
+                "https://lastmilehealthdata.org",
+                "https://www.lastmilehealthdata.org",
+            ],
+            # Owned by the data-lake stacks (other repo) -- referenced, not created.
+            PORTAL_FAST_UPLOAD_BUCKET: "prod-lmd-v2-301323023124-us-east-1-raw",
+            # Existing table (orphaned stack Prod-Prod-portal-ui-useage-events),
+            # shared with the legacy API -- referenced, not created.
+            PORTAL_FAST_EVENTS_TABLE: "portal_ui_useage_events",
+            # Prod-Prod-aurora-postgres isn't synthesized while aurora_only=true,
+            # so its secret is referenced by ARN. One cluster/login for
+            # lmd_portal, lmd_liberia_okr, lmd_portal_config and lmd_datasets.
+            AURORA_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:301323023124:secret:prod/aurora-postgres/credentials-dGfxiQ",
+            REDSHIFT_HOST: "prod-lmd-v2.301323023124.us-east-1.redshift-serverless.amazonaws.com",
+            REDSHIFT_USER: "master",
+            # Plain-string admin password secret (data-lake Redshift stack).
+            REDSHIFT_PASSWORD_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:301323023124:secret:ProdLMDRedshiftPassword8157-Y2XwCa8NzgLv-VccKkW",
         },
     }
 
