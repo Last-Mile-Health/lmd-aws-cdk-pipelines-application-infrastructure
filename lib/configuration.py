@@ -135,7 +135,7 @@ def get_local_configuration(environment: str) -> dict:
             # TODO: replace with the CodeConnections connection ARN created in the Prod account.
             CODESTAR_CONNECTION_ARN: "arn:aws:codeconnections:us-east-1:301323023124:connection/d4846def-1b57-4c84-a1a3-e59180a704e0",
             PORTAL_FAST_ENABLED: True,
-            PORTAL_FAST_CREATE_SERVICE: False,
+            PORTAL_FAST_CREATE_SERVICE: True,
             PORTAL_FAST_IMAGE_TAG: "modeling_prod",
             PORTAL_FAST_GITHUB_ENVIRONMENT: "prod",
             PORTAL_FAST_CORS_ORIGINS: [
