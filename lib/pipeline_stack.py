@@ -136,9 +136,14 @@ class PipelineStack(cdk.Stack):
                     ),
                     trigger=CodePipelineActions.GitHubTrigger.WEBHOOK,
                 ),
+                # aurora_only=true limits the deploy stage to the App Runner
+                # Docker/agent stacks (see pipeline_deploy_stage.py). The live
+                # Dev/Prod synth projects already ran with it (set outside
+                # CDK); keeping it here stops a pipeline update from dropping
+                # it and redeploying every stack, incl. the legacy API.
                 commands=["npm install -g aws-cdk",
                           "python -m pip install -r requirements.txt",
-                          f'export ENV={target_environment} && cdk synth --verbose'],
+                          f'export ENV={target_environment} && cdk synth --context aurora_only=true --verbose'],
             ),
             cross_account_keys=True
         )
