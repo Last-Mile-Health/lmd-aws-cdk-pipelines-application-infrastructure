@@ -68,7 +68,7 @@ Each pipeline runs: **Source** (GitHub webhook) → **Build** (`cdk synth --cont
 | `agent-apprunner` | `agent_apprunner_stack.py` | **Yes** | `lmd-2-agent` App Runner service + its CodePipeline |
 | `apprunner-docker` | `apprunner_docker_stack.py` | **Yes** | Older FastAPI build of `lmd-portal-services` (`main`/`prod` branch) + its CodePipeline |
 | `portal-fast` | `portal_fast_stack.py` | **Yes (Prod only)** | The FastAPI service. See below |
-| `apprunner` | `apprunner_stack.py` | No (frozen) | **Legacy Flask API** (`lmd-portal-services`, branch `legacy` / `legacy_prod`). Live and used by the frontend. The code no longer matches the running service, so it must not be redeployed until it does |
+| `apprunner` | `apprunner_stack.py` | No (frozen) | **Legacy Flask API** (`lmd-portal-services`, branch `legacy-dev` / `legacy-prod`). Live and used by the frontend. The code no longer matches the running service, so it must not be redeployed until it does |
 | `aurora-postgres` | `aurora_postgres_stack.py` | No (frozen) | The shared Aurora PostgreSQL cluster and its secret `<env>/aurora-postgres/credentials` |
 | `amplify`, `cognito`, `beanstalk`, `iam-user` | … | No (frozen) | Older stacks; not representative of the live setup |
 
@@ -78,7 +78,7 @@ Each pipeline runs: **Source** (GitHub webhook) → **Build** (`cdk synth --cont
 
 | Repo | What it is | How it deploys | Infra here |
 |---|---|---|---|
-| **`lmd-portal-services`** | Backend API | **FastAPI** (branches `modeling` → Dev, `modeling_prod` → Prod): GitHub Action builds the image → ECR → App Runner auto-deploys. **Legacy Flask API** (`legacy` → Dev, `legacy_prod` → Prod): App Runner builds from source | `PortalFastStack` (Prod FastAPI); `AppRunnerStack` (legacy, frozen). Dev's FastAPI (`lmd-portal-fast`) predates this repo and is not yet in CDK |
+| **`lmd-portal-services`** | Backend API | **FastAPI** (branches `main` → Dev `:main`, `prod` → Prod `:prod`; renamed 2026-11-18 from `modeling` / `modeling_prod`): GitHub Action builds the image → ECR → App Runner auto-deploys. **Legacy Flask API** (`legacy-dev` → Dev, `legacy-prod` → Prod): App Runner builds from source | `PortalFastStack` (Prod FastAPI); `AppRunnerStack` (legacy, frozen). Dev's FastAPI (`lmd-portal-fast`) predates this repo and is not yet in CDK |
 | **`lmd-portal-UI`** | Next.js portal | AWS Amplify (Dev app: branch `main`; Prod app: branch `prod`) | `AmplifyStack` (frozen); Amplify env vars are currently set in the console |
 | **`lmd-2-agent`** | AI agent service | App Runner (image) | `AgentAppRunnerStack` |
 | **`lmd-data-pipelines-airflow`** and the data-lake CDK repos | Airflow, Redshift Serverless, data-lake VPC and S3 zones | Their own pipelines | **Not here.** This repo only *references* them (e.g. the Redshift endpoint, the raw upload bucket, the data-lake VPC) by name/ARN in `lib/configuration.py` |
@@ -164,9 +164,9 @@ Commits and PRs: describe *why*, include the evidence (diff, tests), and keep ea
 
 ## Common tasks
 
-**Release the FastAPI to Prod:** merge `modeling` into `modeling_prod` in `lmd-portal-services` (PR). The Prod GitHub workflow builds `:modeling_prod`, and App Runner deploys it. If the release has Alembic revisions, run the migration step first (DB runbook).
+**Release the FastAPI to Prod:** merge `main` into `prod` in `lmd-portal-services` (PR). The Prod GitHub workflow builds `:prod`, and App Runner deploys it. If the release has Alembic revisions, run the migration step first (DB runbook).
 
-**Roll back the FastAPI:** re-point `:modeling_prod` at the previous image (each image is also tagged `modeling_prod-<commit sha>`). App Runner redeploys. App Runner also rolls back by itself if the health check fails.
+**Roll back the FastAPI:** re-point `:prod` at the previous image (each image is also tagged `prod-<commit sha>`; images from before 2026-11-18 are tagged `modeling_prod-<commit sha>`). App Runner redeploys. App Runner also rolls back by itself if the health check fails.
 
 **Add an environment variable to the FastAPI:** add it to `environment_variables` (non-secret) or `environment_secrets` (secret, by ARN) in `PortalFastStack`, diff, PR. Don't set it in the console.
 
