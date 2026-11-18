@@ -7,7 +7,6 @@ from .beanstalk_stack import BeanstalkStack
 from .apprunner_stack import AppRunnerStack
 from .aurora_postgres_stack import AuroraPostgresStack
 from .iam_user_stack import IamUserStack
-from .apprunner_docker_stack import AppRunnerDockerStack
 from .agent_apprunner_stack import AgentAppRunnerStack
 from .portal_fast_stack import PortalFastStack
 from .configuration import get_environment_configuration, PORTAL_FAST_ENABLED, VPC_ID
@@ -85,17 +84,15 @@ class PipelineDeployStage(Stage):
             tag(beanstalk_stack, target_environment)
             tag(app_runner_stack, target_environment)
 
-        # Create the App Runner Docker stack (backend service): ECR -> GitHub-connected CodePipeline -> App Runner service
-        apprunner_docker_stack = AppRunnerDockerStack(
-            self,
-            f"{target_environment}-apprunner-docker",
-            target_environment=target_environment,
-            **kwargs,
-        )
-        tag(apprunner_docker_stack, target_environment)
+        # The <env>-apprunner-docker stack (older FastAPI build) was retired on
+        # 2026-11-18: unused (no traffic, nothing points at it). CDK Pipelines
+        # doesn't delete stacks removed from a stage, so it was deleted with
+        # `aws cloudformation delete-stack` after this change deployed. Its ECR
+        # repo (<env>-lmd-application-apprunner-docker) and pipeline artifact
+        # bucket were retained.
 
-        # Create the agent (lmd-2-agent) App Runner stack: same approach as
-        # AppRunnerDockerStack, but sourced from its own GitHub/ECR repositories.
+        # Create the agent (lmd-2-agent) App Runner stack: ECR ->
+        # GitHub-connected CodePipeline -> App Runner service.
         agent_apprunner_stack = AgentAppRunnerStack(
             self,
             f"{target_environment}-agent-apprunner",
