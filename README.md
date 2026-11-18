@@ -10,8 +10,10 @@ This repo defines the **AWS infrastructure for the Last Mile Data (LMD) portal a
 
 - [How it fits together](#how-it-fits-together)
 - [Accounts and pipelines](#accounts-and-pipelines)
+- [Live services](#live-services)
 - [What gets deployed (and what doesn't)](#what-gets-deployed-and-what-doesnt)
 - [Repositories this repo supports](#repositories-this-repo-supports)
+- [Branches and protection](#branches-and-protection)
 - [The FastAPI service (`PortalFastStack`)](#the-fastapi-service-portalfaststack)
 - [Rules we work by](#rules-we-work-by)
 - [Local setup](#local-setup)
@@ -59,14 +61,31 @@ All resources are in **`us-east-1`**. Per-environment values (VPC, CodeConnectio
 
 Each pipeline runs: **Source** (GitHub webhook) → **Build** (`cdk synth --context aurora_only=true`) → **UpdatePipeline** (the pipeline updates itself; it restarts once if its own definition changed) → **deploy stage** (one CloudFormation deploy per stack).
 
+To watch a pipeline you need credentials for the **Deployment** account; to inspect what it deployed you need the Dev or Prod account. Locally these are kept as `.aws-temp-creds-deployment`, `.aws-temp-creds-dev` and `.aws-temp-creds-prod` (short-lived, git-ignored; load with `set -a; . ./.aws-temp-creds-dev; set +a`).
+
+## Live services
+
+What runs today (checked 2026-11-18). All App Runner URLs are `https://<id>.us-east-1.awsapprunner.com`.
+
+| Service | Dev (`002190277880`) | Prod (`301323023124`) | Built from | Defined in |
+|---|---|---|---|---|
+| **FastAPI** (`lmd-portal-services`) | `lmd-portal-fast` · `cpajhzmcfs` · image `lmd-portal-services:main` | `prod-lmd-portal-fast` · `mr67vamkpf` · image `prod-lmd-portal-services:prod` | branches `main` / `prod` (GitHub Action → ECR) | Dev: console (not in CDK yet). Prod: `PortalFastStack` |
+| **Legacy Flask API** (`lmd-portal-services`) | `lmd-portal-services-cdk` · `p8wutvgugr` | `lmd-portal-services-cdk` · `3pf72ntfe3` | branches `legacy-dev` / `legacy-prod` (App Runner builds from source) | `AppRunnerStack` (frozen) |
+| **AI agent used by the portal** (`lmd-2-agent`) | `lmd-2-agent` · `5gygvejpie` | **none** (the Prod portal also calls the Dev agent) | image `lmd-2-agent:latest` | console (not in CDK) |
+| AI agent (CDK) | `dev-lmd-application-agent` · `j2uiy5wazq` | `prod-lmd-application-agent` · `k39hgjhtpr` | image `<env>-lmd-application-agent:latest` (its CodePipeline) | `AgentAppRunnerStack` — **not used by the portal** |
+| Older FastAPI build | `dev-lmd-application-apprunner-docker` · `fpsuu7hkmz` | `prod-lmd-application-apprunner-docker` · `2ut9zyyifn` | `lmd-portal-services` `main` / `prod` (its CodePipeline) | `AppRunnerDockerStack` — **not used by the portal**, to be retired |
+| (paused) | — | `lmd-portal-services` · `bcv2gn4pfr` | — | console |
+
+The portal (Amplify) is configured in the console with `LMD_API_BASE_URL` / `NEXT_PUBLIC_LMD_API` → legacy API, `NEW_LMD_API_BASE_URL` → FastAPI, and `NEXT_PUBLIC_LMD_AI_AGENT_BASE_URL` → `lmd-2-agent`.
+
 ## What gets deployed (and what doesn't)
 
 `lib/pipeline_deploy_stage.py` defines the stacks per environment. The synth step passes **`--context aurora_only=true`** (`lib/pipeline_stack.py`), which, despite its name, **excludes** the older stacks from the deploy stage:
 
 | Stack (`<Env>-<Env>-…`) | File | Deployed by the pipeline? | Notes |
 |---|---|---|---|
-| `agent-apprunner` | `agent_apprunner_stack.py` | **Yes** | `lmd-2-agent` App Runner service + its CodePipeline |
-| `apprunner-docker` | `apprunner_docker_stack.py` | **Yes** | Older FastAPI build of `lmd-portal-services` (`main`/`prod` branch) + its CodePipeline |
+| `agent-apprunner` | `agent_apprunner_stack.py` | **Yes** | `<env>-lmd-application-agent` App Runner service (code from `lmd-2-agent`) + its CodePipeline. Its instance role can only read `<env>/aurora-postgres/agent-readonly` (see [Databases](#databases)) |
+| `apprunner-docker` | `apprunner_docker_stack.py` | **Yes** | Older FastAPI build of `lmd-portal-services` + its CodePipeline. **Its pipeline still builds on every push to `lmd-portal-services` `main` (Dev) / `prod` (Prod)**, which are now the current FastAPI branches. Unused; to be retired |
 | `portal-fast` | `portal_fast_stack.py` | **Yes (Prod only)** | The FastAPI service. See below |
 | `apprunner` | `apprunner_stack.py` | No (frozen) | **Legacy Flask API** (`lmd-portal-services`, branch `legacy-dev` / `legacy-prod`). Live and used by the frontend. The code no longer matches the running service, so it must not be redeployed until it does |
 | `aurora-postgres` | `aurora_postgres_stack.py` | No (frozen) | The shared Aurora PostgreSQL cluster and its secret `<env>/aurora-postgres/credentials` |
@@ -78,9 +97,9 @@ Each pipeline runs: **Source** (GitHub webhook) → **Build** (`cdk synth --cont
 
 | Repo | What it is | How it deploys | Infra here |
 |---|---|---|---|
-| **`lmd-portal-services`** | Backend API | **FastAPI** (branches `main` → Dev `:main`, `prod` → Prod `:prod`; renamed 2026-11-18 from `modeling` / `modeling_prod`): GitHub Action builds the image → ECR → App Runner auto-deploys. **Legacy Flask API** (`legacy-dev` → Dev, `legacy-prod` → Prod): App Runner builds from source | `PortalFastStack` (Prod FastAPI); `AppRunnerStack` (legacy, frozen). Dev's FastAPI (`lmd-portal-fast`) predates this repo and is not yet in CDK |
+| **`lmd-portal-services`** | Backend API (two apps in one repo, on different branches) | **FastAPI** (`main` → Dev `:main`, `prod` → Prod `:prod`): GitHub Action builds the image → ECR → App Runner auto-deploys. **Legacy Flask API** (`legacy-dev` → Dev, `legacy-prod` → Prod): App Runner builds from source. See [Branches and protection](#branches-and-protection) | `PortalFastStack` (Prod FastAPI); `AppRunnerStack` (legacy, frozen). Dev's FastAPI (`lmd-portal-fast`) predates this repo and is not yet in CDK |
 | **`lmd-portal-UI`** | Next.js portal | AWS Amplify (Dev app: branch `main`; Prod app: branch `prod`) | `AmplifyStack` (frozen); Amplify env vars are currently set in the console |
-| **`lmd-2-agent`** | AI agent service | App Runner (image) | `AgentAppRunnerStack` |
+| **`lmd-2-agent`** | AI agent service | App Runner (image). The portal uses the console-built `lmd-2-agent` service in Dev for both environments | `AgentAppRunnerStack` (the CDK-managed agent services, not yet the one the portal uses) |
 | **`lmd-data-pipelines-airflow`** and the data-lake CDK repos | Airflow, Redshift Serverless, data-lake VPC and S3 zones | Their own pipelines | **Not here.** This repo only *references* them (e.g. the Redshift endpoint, the raw upload bucket, the data-lake VPC) by name/ARN in `lib/configuration.py` |
 
 ### Databases
@@ -94,6 +113,25 @@ All application databases live on **one Aurora PostgreSQL cluster per environmen
 | `lmd_datasets` | Airflow (`lmd-data-pipelines-airflow`), created lazily |
 
 Database creation and migrations are deliberate, reviewed steps, not something the pipeline does. See the DB runbook in [Further reading](#further-reading).
+
+**Agent read-only login.** The AI agent should not use the shared admin login. `scripts/create-agent-readonly-user.sh` creates the Postgres role `lmd_agent_ro` (read-only by default, `lmd_portal` and `lmd_liberia_okr` only, 10 connections, 60 s statement timeout, no temp tables) and stores its login in `<env>/aurora-postgres/agent-readonly`. It's idempotent and a dry run unless you pass `--apply`; re-run it after new schemas are added. It has been run in Dev and Prod (2026-10-26). The agent reads the secret named by its `DB_SECRET_ID` env var; wiring that into `lmd-2-agent` is still open (see [Known gaps](#known-gaps)).
+
+## Branches and protection
+
+**This repo:** `main` (→ Dev) and `prod` (→ Prod). Work on `feature/…`, `fix/…`, `docs/…` branches and merge by PR.
+
+**`lmd-portal-services`** has four long-lived branches (restructured 2026-11-18):
+
+| Branch | App | Deploys to | Was |
+|---|---|---|---|
+| `main` (default) | FastAPI | Dev `lmd-portal-fast` (`:main`) | `modeling` |
+| `prod` | FastAPI | Prod `prod-lmd-portal-fast` (`:prod`) | `modeling_prod` |
+| `legacy-dev` | Legacy Flask API | Dev `lmd-portal-services-cdk` | `legacy` |
+| `legacy-prod` | Legacy Flask API | Prod `lmd-portal-services-cdk` | `legacy_prod` |
+
+FastAPI flow: feature branch → PR to `main` (Dev) → PR `main` → `prod`. Legacy flow: PR to `legacy-dev` → PR `legacy-dev` → `legacy-prod`. The previous heads of every branch (including the old July-era `main` and `prod`) are kept as tags `archive/<branch>-2026-11-18`.
+
+**Protection is not enforced yet.** The GitHub org is on the Free plan, which doesn't allow branch protection or rulesets on private repos. Until the org moves to a plan that does (e.g. GitHub Team, possibly via GitHub's nonprofit offer), **never push directly to these branches**; always merge by PR. The intended rules for `main`, `prod`, `legacy-dev`, `legacy-prod` (and this repo's `main`, `prod`): PR required with 1 approval, no force-push, no deletion, admins may bypass in an emergency.
 
 ## The FastAPI service (`PortalFastStack`)
 
@@ -189,6 +227,7 @@ lib/
   apprunner_stack.py, aurora_postgres_stack.py, amplify_stack.py,
   cognito_stack.py, beanstalk_stack.py, iam_user_stack.py   # frozen (not deployed)
   prerequisites/            # one-time account bootstrap scripts (cdk bootstrap, GitHub token secret)
+scripts/                    # operational scripts run by hand (e.g. create-agent-readonly-user.sh)
 tests/                      # CDK assertion tests
 docs/                       # plans, runbooks, audits
 resources/                  # docs from the original AWS sample this repo started from (outdated)
@@ -201,7 +240,10 @@ Tracked in more detail in the audit and plan under `docs/`:
 - **Several stacks are frozen** (legacy API, Aurora, Amplify, Cognito, …) and their code doesn't match what's running. They need to be codified as-is before they can be deployed again.
 - **`aurora_only` is misnamed** (it excludes Aurora). It should become an explicit per-environment stack list.
 - **Dev's FastAPI (`lmd-portal-fast`) and agent were built in the console**, and Amplify env vars are set in the console.
-- **The `apprunner-docker` service** (older FastAPI build) runs alongside `portal-fast` in Prod and should be retired.
+- **The agent the portal uses (`lmd-2-agent`, Dev account) isn't in CDK, and the Prod portal calls it too.** Prod needs its own agent, and the portal should point at the CDK-managed one.
+- **The agent doesn't use the read-only login yet.** `lmd-2-agent` still connects with `DB_URI` and has static AWS keys in its env vars (which take precedence over the instance role). To finish: read the login via `DB_SECRET_ID`, set it on the service, remove the static keys.
+- **The `apprunner-docker` services** (older FastAPI build) are unused but their pipelines still build on every push to `lmd-portal-services` `main` / `prod`. Retire them (or at least disable their source transitions).
+- **No branch protection** on any repo (GitHub Free plan). See [Branches and protection](#branches-and-protection).
 - **The Test environment** isn't set up.
 - **Synth-time AWS calls** in `apprunner_stack.py` (looks up a secret while synthesizing) should go.
 
