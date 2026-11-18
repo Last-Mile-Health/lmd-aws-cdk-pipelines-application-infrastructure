@@ -132,8 +132,17 @@ class AppRunnerDockerStack(Stack):
             ],
         )
 
+        # Retired 2026-11-18: lmd-portal-services main/prod are now the current
+        # FastAPI, deployed by GitHub Actions to PortalFastStack / lmd-portal-fast.
+        # This service is unused, so its pipeline must not build them. Source
+        # still runs; nothing passes into Build. Remove the stack to finish.
         pipeline.add_stage(
             stage_name="Build",
+            transition_to_enabled=False,
+            transition_disabled_reason=(
+                "Retired: unused older FastAPI build; lmd-portal-services "
+                "main/prod now deploy via GitHub Actions (2026-11-18)"
+            ),
             actions=[
                 codepipeline_actions.CodeBuildAction(
                     action_name="DockerBuildAndPush",
