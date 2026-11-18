@@ -73,7 +73,7 @@ What runs today (checked 2026-11-18). All App Runner URLs are `https://<id>.us-e
 | **Legacy Flask API** (`lmd-portal-services`) | `lmd-portal-services-cdk` · `p8wutvgugr` | `lmd-portal-services-cdk` · `3pf72ntfe3` | branches `legacy-dev` / `legacy-prod` (App Runner builds from source) | `AppRunnerStack` (frozen) |
 | **AI agent used by the portal** (`lmd-2-agent`) | `lmd-2-agent` · `5gygvejpie` | **none** (the Prod portal also calls the Dev agent) | image `lmd-2-agent:latest` | console (not in CDK) |
 | AI agent (CDK) | `dev-lmd-application-agent` · `j2uiy5wazq` | `prod-lmd-application-agent` · `k39hgjhtpr` | image `<env>-lmd-application-agent:latest` (its CodePipeline) | `AgentAppRunnerStack` — **not used by the portal** |
-| Older FastAPI build | `dev-lmd-application-apprunner-docker` · `fpsuu7hkmz` | `prod-lmd-application-apprunner-docker` · `2ut9zyyifn` | `lmd-portal-services` `main` / `prod` (its CodePipeline) | `AppRunnerDockerStack` — **not used by the portal**, to be retired |
+| Older FastAPI build | `dev-lmd-application-apprunner-docker` · `fpsuu7hkmz` | `prod-lmd-application-apprunner-docker` · `2ut9zyyifn` | nothing: its CodePipeline's Build stage is disabled (it used to build `lmd-portal-services` `main` / `prod`) | `AppRunnerDockerStack` — **not used by the portal**, to be retired |
 | (paused) | — | `lmd-portal-services` · `bcv2gn4pfr` | — | console |
 
 The portal (Amplify) is configured in the console with `LMD_API_BASE_URL` / `NEXT_PUBLIC_LMD_API` → legacy API, `NEW_LMD_API_BASE_URL` → FastAPI, and `NEXT_PUBLIC_LMD_AI_AGENT_BASE_URL` → `lmd-2-agent`.
@@ -85,7 +85,7 @@ The portal (Amplify) is configured in the console with `LMD_API_BASE_URL` / `NEX
 | Stack (`<Env>-<Env>-…`) | File | Deployed by the pipeline? | Notes |
 |---|---|---|---|
 | `agent-apprunner` | `agent_apprunner_stack.py` | **Yes** | `<env>-lmd-application-agent` App Runner service (code from `lmd-2-agent`) + its CodePipeline. Its instance role can only read `<env>/aurora-postgres/agent-readonly` (see [Databases](#databases)) |
-| `apprunner-docker` | `apprunner_docker_stack.py` | **Yes** | Older FastAPI build of `lmd-portal-services` + its CodePipeline. **Its pipeline still builds on every push to `lmd-portal-services` `main` (Dev) / `prod` (Prod)**, which are now the current FastAPI branches. Unused; to be retired |
+| `apprunner-docker` | `apprunner_docker_stack.py` | **Yes** | Older FastAPI build of `lmd-portal-services` + its CodePipeline. Unused; to be retired. The pipeline's **Build stage is disabled** (`transition_to_enabled=False`, since 2026-11-18) so it no longer builds `lmd-portal-services` `main` / `prod`, which are now the current FastAPI branches |
 | `portal-fast` | `portal_fast_stack.py` | **Yes (Prod only)** | The FastAPI service. See below |
 | `apprunner` | `apprunner_stack.py` | No (frozen) | **Legacy Flask API** (`lmd-portal-services`, branch `legacy-dev` / `legacy-prod`). Live and used by the frontend. The code no longer matches the running service, so it must not be redeployed until it does |
 | `aurora-postgres` | `aurora_postgres_stack.py` | No (frozen) | The shared Aurora PostgreSQL cluster and its secret `<env>/aurora-postgres/credentials` |
@@ -242,7 +242,7 @@ Tracked in more detail in the audit and plan under `docs/`:
 - **Dev's FastAPI (`lmd-portal-fast`) and agent were built in the console**, and Amplify env vars are set in the console.
 - **The agent the portal uses (`lmd-2-agent`, Dev account) isn't in CDK, and the Prod portal calls it too.** Prod needs its own agent, and the portal should point at the CDK-managed one.
 - **The agent doesn't use the read-only login yet.** `lmd-2-agent` still connects with `DB_URI` and has static AWS keys in its env vars (which take precedence over the instance role). To finish: read the login via `DB_SECRET_ID`, set it on the service, remove the static keys.
-- **The `apprunner-docker` services** (older FastAPI build) are unused but their pipelines still build on every push to `lmd-portal-services` `main` / `prod`. Retire them (or at least disable their source transitions).
+- **The `apprunner-docker` services** (older FastAPI build) are unused. Their pipelines' Build stage is disabled, but the services, pipelines and ECR repos still exist. Retire them (remove the stack from `pipeline_deploy_stage.py`, after checking what CloudFormation would delete).
 - **No branch protection** on any repo (GitHub Free plan). See [Branches and protection](#branches-and-protection).
 - **The Test environment** isn't set up.
 - **Synth-time AWS calls** in `apprunner_stack.py` (looks up a secret while synthesizing) should go.
