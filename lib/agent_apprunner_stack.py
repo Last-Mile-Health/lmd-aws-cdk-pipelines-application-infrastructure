@@ -157,16 +157,17 @@ class AgentAppRunnerStack(Stack):
             self, "AgentInstanceRole",
             assumed_by=iam.ServicePrincipal("tasks.apprunner.amazonaws.com"),
         )
+        # Only the agent's read-only DB login (DB_SECRET_ID), created out of
+        # band by scripts/create-agent-readonly-user.sh. The trailing "-*"
+        # matches the random suffix Secrets Manager appends to the ARN.
         instance_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
-                actions=[
-                    "secretsmanager:ListSecrets",
-                    "secretsmanager:GetSecretValue",
+                actions=["secretsmanager:GetSecretValue"],
+                resources=[
+                    f"arn:aws:secretsmanager:{self.region}:{self.account}:secret:"
+                    f"{target_environment.lower()}/aurora-postgres/agent-readonly-*"
                 ],
-                # NOTE: consider scoping this to specific secret ARNs once the
-                # real secrets for this service are known.
-                resources=["*"],
             )
         )
 

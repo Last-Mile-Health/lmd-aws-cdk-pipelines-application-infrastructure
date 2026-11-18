@@ -104,7 +104,7 @@ class PipelineDeployStage(Stage):
         )
         tag(agent_apprunner_stack, target_environment)
 
-        # lmd-portal-services FastAPI (modeling line), alongside the legacy
+        # lmd-portal-services FastAPI (main / prod branches), alongside the legacy
         # API. Outside the aurora_only block so it deploys with the flag on.
         if get_environment_configuration(target_environment).get(PORTAL_FAST_ENABLED):
             portal_fast_stack = PortalFastStack(
