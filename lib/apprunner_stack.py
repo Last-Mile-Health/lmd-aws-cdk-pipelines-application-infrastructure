@@ -20,7 +20,9 @@ class AppRunnerStack(Stack):
             assumed_by=iam.ServicePrincipal("tasks.apprunner.amazonaws.com")
         )
 
-        branch = "main" if target_environment.lower() == "dev" else target_environment.lower()
+        # Legacy Flask API branches in lmd-portal-services (renamed 2026-11-18
+        # from legacy / legacy_prod). main / prod there are the FastAPI.
+        branch = "legacy-dev" if target_environment.lower() == "dev" else f"legacy-{target_environment.lower()}"
 
         # Add permissions to the role as needed
         instance_role.add_managed_policy(

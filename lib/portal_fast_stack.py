@@ -38,9 +38,9 @@ BEDROCK_PROFILE_REGIONS = ["us-east-1", "us-east-2", "us-west-2"]
 
 class PortalFastStack(Stack):
     """
-    lmd-portal-services FastAPI service (`modeling` line) on App Runner.
+    lmd-portal-services FastAPI service (branch `prod`) on App Runner.
 
-    Runs alongside the legacy API (Prod-apprunner, branch legacy_prod), which
+    Runs alongside the legacy API (Prod-apprunner, branch legacy-prod), which
     this stack does not touch. Deployment model:
 
         push to <image tag branch> -> GitHub Action (OIDC role below) builds
