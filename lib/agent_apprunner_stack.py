@@ -26,7 +26,7 @@ class AgentAppRunnerStack(Stack):
     automatically rolls out a new deployment whenever a fresh image lands on
     the tracked tag -- no explicit "deploy" pipeline stage is required.
 
-    This mirrors AppRunnerDockerStack's approach exactly (which serves the
+    This mirrors the retired AppRunnerDockerStack's approach exactly (which served the
     backend), but targets the agent's own GitHub repository and ECR repository.
     """
 
