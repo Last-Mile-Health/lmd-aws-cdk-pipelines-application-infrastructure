@@ -65,6 +65,10 @@ REDSHIFT_PASSWORD_SECRET_ARN = "redshift_password_secret_arn"
 # lmh-lives-saved-tool on EC2 (LivesSavedStack) -- see
 # docs/plans/2026-11-19-lives-saved-ec2-plan.md.
 LIVES_SAVED_GITHUB_REPOSITORY_NAME = "lives_saved_github_repository_name"
+# The repo uses GitHub's immutable OIDC subjects (owner and repo IDs, not
+# names): `gh api repos/<owner>/<repo>/actions/oidc/customization/sub`
+# shows the prefix. A renamed or re-created repo can't reuse the role.
+LIVES_SAVED_GITHUB_OIDC_SUB_PREFIX = "lives_saved_github_oidc_sub_prefix"
 LIVES_SAVED_ENABLED = "lives_saved_enabled"
 LIVES_SAVED_DOMAIN = "lives_saved_domain"
 LIVES_SAVED_INSTANCE_TYPE = "lives_saved_instance_type"
@@ -119,6 +123,7 @@ def get_local_configuration(environment: str) -> dict:
             # TODO: point this at the GitHub repo containing the Dockerfile for the agent service.
             AGENT_GITHUB_REPOSITORY_NAME: "lmd-2-agent",
             LIVES_SAVED_GITHUB_REPOSITORY_NAME: "lmh-lives-saved-tool",
+            LIVES_SAVED_GITHUB_OIDC_SUB_PREFIX: "repo:Last-Mile-Health@9609034/lmh-lives-saved-tool@1463055911",
             LOGICAL_ID_PREFIX: "LMDCDKApplication",
             RESOURCE_NAME_PREFIX: "lmd-application",
             COGNITO_CALLBACK_URLS: "https://main.d1gfzcw5a606s8.amplifyapp.com/",
