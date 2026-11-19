@@ -15,6 +15,7 @@ This repo defines the **AWS infrastructure for the Last Mile Data (LMD) portal a
 - [Repositories this repo supports](#repositories-this-repo-supports)
 - [Branches and protection](#branches-and-protection)
 - [The FastAPI service (`PortalFastStack`)](#the-fastapi-service-portalfaststack)
+- [The Lives Saved Tool (`LivesSavedStack`)](#the-lives-saved-tool-livessavedstack)
 - [Rules we work by](#rules-we-work-by)
 - [Local setup](#local-setup)
 - [Making a change](#making-a-change)
@@ -74,6 +75,7 @@ What runs today (checked 2026-11-18). All App Runner URLs are `https://<id>.us-e
 | **AI agent used by the portal** (`lmd-2-agent`) | `lmd-2-agent` · `5gygvejpie` | **none** (the Prod portal also calls the Dev agent) | image `lmd-2-agent:latest` | console (not in CDK) |
 | AI agent (CDK) | `dev-lmd-application-agent` · `j2uiy5wazq` | `prod-lmd-application-agent` · `k39hgjhtpr` | image `<env>-lmd-application-agent:latest` (its CodePipeline) | `AgentAppRunnerStack` — **not used by the portal** |
 | (paused) | — | `lmd-portal-services` · `bcv2gn4pfr` | — | console |
+| **Lives Saved Tool** (`lmh-lives-saved-tool`) | EC2 `dev-lmh-lives-saved` · https://dev.livessaved.lastmilehealthdata.org | EC2 `prod-lmh-lives-saved` · https://livessaved.lastmilehealthdata.org | branches `main` / `prod` (GitHub Action → ECR → SSM deploy) | `LivesSavedStack` |
 
 The portal (Amplify) is configured in the console with `LMD_API_BASE_URL` / `NEXT_PUBLIC_LMD_API` → legacy API, `NEW_LMD_API_BASE_URL` → FastAPI, and `NEXT_PUBLIC_LMD_AI_AGENT_BASE_URL` → `lmd-2-agent`.
 
@@ -85,6 +87,7 @@ The portal (Amplify) is configured in the console with `LMD_API_BASE_URL` / `NEX
 |---|---|---|---|
 | `agent-apprunner` | `agent_apprunner_stack.py` | **Yes** | `<env>-lmd-application-agent` App Runner service (code from `lmd-2-agent`) + its CodePipeline. Its instance role can only read `<env>/aurora-postgres/agent-readonly` (see [Databases](#databases)) |
 | `portal-fast` | `portal_fast_stack.py` | **Yes (Prod only)** | The FastAPI service. See below |
+| `lives-saved` | `lives_saved_stack.py` | **Yes** | Lives Saved Tool on EC2. See [The Lives Saved Tool](#the-lives-saved-tool-livessavedstack) |
 | `apprunner` | `apprunner_stack.py` | No (frozen) | **Legacy Flask API** (`lmd-portal-services`, branch `legacy-dev` / `legacy-prod`). Live and used by the frontend. The code no longer matches the running service, so it must not be redeployed until it does |
 | `aurora-postgres` | `aurora_postgres_stack.py` | No (frozen) | The shared Aurora PostgreSQL cluster and its secret `<env>/aurora-postgres/credentials` |
 | `amplify`, `cognito`, `beanstalk`, `iam-user` | … | No (frozen) | Older stacks; not representative of the live setup |
@@ -98,6 +101,7 @@ The portal (Amplify) is configured in the console with `LMD_API_BASE_URL` / `NEX
 | **`lmd-portal-services`** | Backend API (two apps in one repo, on different branches) | **FastAPI** (`main` → Dev `:main`, `prod` → Prod `:prod`): GitHub Action builds the image → ECR → App Runner auto-deploys. **Legacy Flask API** (`legacy-dev` → Dev, `legacy-prod` → Prod): App Runner builds from source. See [Branches and protection](#branches-and-protection) | `PortalFastStack` (Prod FastAPI); `AppRunnerStack` (legacy, frozen). Dev's FastAPI (`lmd-portal-fast`) predates this repo and is not yet in CDK |
 | **`lmd-portal-UI`** | Next.js portal | AWS Amplify (Dev app: branch `main`; Prod app: branch `prod`) | `AmplifyStack` (frozen); Amplify env vars are currently set in the console |
 | **`lmd-2-agent`** | AI agent service | App Runner (image). The portal uses the console-built `lmd-2-agent` service in Dev for both environments | `AgentAppRunnerStack` (the CDK-managed agent services, not yet the one the portal uses) |
+| **`lmh-lives-saved-tool`** | Lives Saved modeling tool (React web + FastAPI) | `main` → Dev, `prod` → Prod: GitHub Action builds both images → ECR → SSM Run Command restarts docker compose on the instance | `LivesSavedStack` |
 | **`lmd-data-pipelines-airflow`** and the data-lake CDK repos | Airflow, Redshift Serverless, data-lake VPC and S3 zones | Their own pipelines | **Not here.** This repo only *references* them (e.g. the Redshift endpoint, the raw upload bucket, the data-lake VPC) by name/ARN in `lib/configuration.py` |
 
 ### Databases
@@ -109,6 +113,9 @@ All application databases live on **one Aurora PostgreSQL cluster per environmen
 | `lmd_portal` | `lmd-portal-services` Alembic migrations (shared with the legacy API) |
 | `lmd_liberia_okr`, `lmd_portal_config` | `lmd-portal-services` creates its tables at startup (`api/main.py` `_ensure_external_tables`) |
 | `lmd_datasets` | Airflow (`lmd-data-pipelines-airflow`), created lazily |
+| `lmd_lives_saved_tool` | `lmh-lives-saved-tool` Alembic migrations (run when the api container starts). **Own login** `lmd_lives_saved_app`, see below |
+
+**Lives Saved Tool login.** `scripts/create-lives-saved-db.sh` creates the database `lmd_lives_saved_tool`, owned by the role `lmd_lives_saved_app` (no CREATEDB/CREATEROLE, 20 connections; `PUBLIC` can't connect), and stores the login in `<env>/aurora-postgres/lives-saved-tool`. Idempotent, and a dry run unless you pass `--apply`.
 
 Database creation and migrations are deliberate, reviewed steps, not something the pipeline does. See the DB runbook in [Further reading](#further-reading).
 
@@ -145,6 +152,25 @@ FastAPI flow: feature branch → PR to `main` (Dev) → PR `main` → `prod`. Le
 **Two-pass bootstrap.** App Runner can't be created before an image exists in the ECR repo the stack creates. So `PORTAL_FAST_CREATE_SERVICE` is `False` for the first deploy (everything but the service), then the app repo pushes its first image, then it is flipped to `True`.
 
 **Service token.** The FastAPI requires the `X-Service-Token` header on **every** route except `GET /api/health`; `/docs` and `/openapi.json` are public (use **Authorize** in `/docs` to try routes). The portal sends it server-side from `LMD_API_SERVICE_TOKEN`. Each environment has its own token in Secrets Manager (`<env>/lmd-portal-fast/service-token`); the API and the portal must hold the same value.
+
+## The Lives Saved Tool (`LivesSavedStack`)
+
+`lib/lives_saved_stack.py` runs `lmh-lives-saved-tool` on **one EC2 instance per environment** (plan: `docs/plans/2026-11-19-lives-saved-ec2-plan.md`):
+
+```
+https://<domain> → Elastic IP → EC2 t3.small (public subnet; only 80/443 open, no SSH)
+    caddy (Let's Encrypt TLS) → web (nginx: SPA, proxies /api) → api (FastAPI) → Aurora lmd_lives_saved_tool
+```
+
+- **Instance:** Amazon Linux 2023 (AMI pinned in `configuration.py` so a new AMI never replaces it unexpectedly), IMDSv2 only, encrypted 30 GB gp3 root volume (tagged). User data installs only Docker and Compose; the app arrives with each deploy. Admin access: **SSM Session Manager** (`aws ssm start-session --target <instance id>`).
+- **Instance role:** pull its two ECR repos, read `<env>/aurora-postgres/lives-saved-tool`, write logs to `/lmh-lives-saved/<env>` (30 days), SSM.
+- **ECR repos** `<env>-lmh-lives-saved-api` / `-web` (retained; images tagged `<branch>` and `<branch>-<sha>`).
+- **GitHub deploy role** `<env>-lmh-lives-saved-github-deploy`: only the app repo's GitHub environment `dev` / `prod` can assume it; it can push those two repos and send SSM commands to that one instance. Dev's stack creates the account's GitHub OIDC provider; Prod reuses the one `PortalFastStack` created.
+- **DNS:** Prod's `livessaved.lastmilehealthdata.org` is an A record created by the stack. Dev's `dev.livessaved.lastmilehealthdata.org` is in the **Prod** account's zone, so the Dev stack can't create it; it was set once by CLI to Dev's Elastic IP (see Common tasks).
+
+**Deploy flow** (app repo `.github/workflows/deploy.yml`): push to `main` (Dev) or `prod` (Prod) → tests → build and push both images → SSM Run Command copies `deploy/` to `/opt/lmh-lives-saved` and runs `deploy.sh` (writes `.env` from the DB secret, `docker compose pull && up --wait`, checks `/api/health` through nginx) → the workflow checks `https://<domain>/api/health`.
+
+**Bootstrap order (per environment):** run `scripts/create-lives-saved-db.sh --apply` → the stack deploys (pipeline) → (Dev) set the DNS record → push the app branch.
 
 ## Rules we work by
 
@@ -208,6 +234,12 @@ Commits and PRs: describe *why*, include the evidence (diff, tests), and keep ea
 
 **Set or rotate a secret value:** `aws secretsmanager put-secret-value --secret-id <name> --secret-string file://<file>` from a private temp file, then redeploy the service so it picks the value up. For the service token, update the portal's Amplify `LMD_API_SERVICE_TOKEN` (per branch) to the same value.
 
+**Lives Saved Tool: point Dev's DNS at its instance** (once, or if the Elastic IP changes): with Prod credentials, UPSERT an A record `dev.livessaved.lastmilehealthdata.org` → the Dev stack's `PublicIp` output in hosted zone `Z06020672MB24JCV66DHV`, TTL 300.
+
+**Lives Saved Tool: roll back:** in the app repo, re-run the last good Deploy run (a re-run uses that run's commit), or merge a revert PR. Images `<branch>-<sha>` stay in ECR.
+
+**Lives Saved Tool: shell on the instance:** `aws ssm start-session --target <InstanceId output>`; the app is in `/opt/lmh-lives-saved` (`docker compose ps`, `docker compose logs api`). Logs are also in CloudWatch `/lmh-lives-saved/<env>`.
+
 **Add a new service:** copy the shape of `PortalFastStack` (own ECR repo, OIDC deploy role, access/instance roles, secrets via `environment_secrets`, health check, autoscaling, `tag()`), gate it with a config flag per environment, and add it in `pipeline_deploy_stage.py` **outside** the `aurora_only` block.
 
 ## Repo layout
@@ -221,6 +253,7 @@ lib/
   pipeline_deploy_stage.py  # which stacks deploy per environment
   tagging.py                # the four lmd-application:* tags
   portal_fast_stack.py      # FastAPI service (reference pattern)
+  lives_saved_stack.py      # Lives Saved Tool on EC2
   agent_apprunner_stack.py
   apprunner_stack.py, aurora_postgres_stack.py, amplify_stack.py,
   cognito_stack.py, beanstalk_stack.py, iam_user_stack.py   # frozen (not deployed)
@@ -243,6 +276,8 @@ Tracked in more detail in the audit and plan under `docs/`:
 - **Leftovers of the retired `apprunner-docker` stack** (removed 2026-11-18): its ECR repos `<env>-lmd-application-apprunner-docker` and pipeline artifact buckets were retained. Delete them once nobody needs the old images.
 - **No branch protection** on any repo (GitHub Free plan). See [Branches and protection](#branches-and-protection).
 - **The Test environment** isn't set up.
+- **Both Aurora clusters' security groups allow 5432 from anywhere** (`0.0.0.0/0`). Access is password-only today; it should be narrowed to the services that need it.
+- **Dev's Lives Saved DNS record** is set by CLI (it lives in the Prod account's zone).
 - **Synth-time AWS calls** in `apprunner_stack.py` (looks up a secret while synthesizing) should go.
 
 ## Further reading

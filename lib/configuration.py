@@ -62,6 +62,25 @@ REDSHIFT_HOST = "redshift_host"
 REDSHIFT_USER = "redshift_user"
 REDSHIFT_PASSWORD_SECRET_ARN = "redshift_password_secret_arn"
 
+# lmh-lives-saved-tool on EC2 (LivesSavedStack) -- see
+# docs/plans/2026-11-19-lives-saved-ec2-plan.md.
+LIVES_SAVED_GITHUB_REPOSITORY_NAME = "lives_saved_github_repository_name"
+LIVES_SAVED_ENABLED = "lives_saved_enabled"
+LIVES_SAVED_DOMAIN = "lives_saved_domain"
+LIVES_SAVED_INSTANCE_TYPE = "lives_saved_instance_type"
+# Pinned so an AMI release never replaces the running instance; bump on purpose.
+LIVES_SAVED_AMI_ID = "lives_saved_ami_id"
+LIVES_SAVED_GITHUB_ENVIRONMENT = "lives_saved_github_environment"
+# Hosted zone for LIVES_SAVED_DOMAIN when it's in this account; None means the
+# record is managed outside the stack (Dev's name lives in the Prod zone).
+LIVES_SAVED_HOSTED_ZONE_ID = "lives_saved_hosted_zone_id"
+LIVES_SAVED_HOSTED_ZONE_NAME = "lives_saved_hosted_zone_name"
+# Public subnets (us-east-1a/b/c) of VPC_ID; the instance goes in the first.
+PUBLIC_SUBNET_IDS = "public_subnet_ids"
+# GitHub Actions OIDC provider: one per account. None = this stack creates it;
+# an ARN = it already exists (Prod: created by PortalFastStack).
+GITHUB_OIDC_PROVIDER_ARN = "github_oidc_provider_arn"
+
 # Used in Automated Outputs
 VPC_ID = "vpc_id"
 AVAILABILITY_ZONE_1 = "availability_zone_1"
@@ -99,6 +118,7 @@ def get_local_configuration(environment: str) -> dict:
             SERVICE_GITHUB_REPOSITORY_NAME: "lmd-portal-services",
             # TODO: point this at the GitHub repo containing the Dockerfile for the agent service.
             AGENT_GITHUB_REPOSITORY_NAME: "lmd-2-agent",
+            LIVES_SAVED_GITHUB_REPOSITORY_NAME: "lmh-lives-saved-tool",
             LOGICAL_ID_PREFIX: "LMDCDKApplication",
             RESOURCE_NAME_PREFIX: "lmd-application",
             COGNITO_CALLBACK_URLS: "https://main.d1gfzcw5a606s8.amplifyapp.com/",
@@ -113,6 +133,21 @@ def get_local_configuration(environment: str) -> dict:
             AMPLIFY_GITHUB_TOKEN: "/Amplify/GitHubToken",
             # TODO: replace with the CodeConnections connection ARN created in the Dev account.
             CODESTAR_CONNECTION_ARN: "arn:aws:codestar-connections:us-east-1:002190277880:connection/1fc06fff-185c-4132-bcdf-ae90677c985f",
+            PUBLIC_SUBNET_IDS: [
+                "subnet-0f6fc44125d062d56",  # us-east-1a
+                "subnet-0178a25fcd37070f1",  # us-east-1b
+                "subnet-0e77ff08266f01c9f",  # us-east-1c
+            ],
+            GITHUB_OIDC_PROVIDER_ARN: None,
+            LIVES_SAVED_ENABLED: True,
+            LIVES_SAVED_DOMAIN: "dev.livessaved.lastmilehealthdata.org",
+            # In the Prod account's lastmilehealthdata.org zone: an A record to
+            # this stack's Elastic IP, set once by CLI (see README).
+            LIVES_SAVED_HOSTED_ZONE_ID: None,
+            LIVES_SAVED_HOSTED_ZONE_NAME: None,
+            LIVES_SAVED_INSTANCE_TYPE: "t3.small",
+            LIVES_SAVED_AMI_ID: "ami-06f98347e4f9c7328",  # AL2023 x86_64, 2026-11-19
+            LIVES_SAVED_GITHUB_ENVIRONMENT: "dev",
         },
         TEST: {
             ACCOUNT_ID: "576140831944",
@@ -152,6 +187,19 @@ def get_local_configuration(environment: str) -> dict:
             REDSHIFT_USER: "master",
             # Plain-string admin password secret (data-lake Redshift stack).
             REDSHIFT_PASSWORD_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:301323023124:secret:ProdLMDRedshiftPassword8157-Y2XwCa8NzgLv-VccKkW",
+            PUBLIC_SUBNET_IDS: [
+                "subnet-00b252f813f54335b",  # us-east-1a
+                "subnet-03dc3b5bf520c1b3f",  # us-east-1b
+                "subnet-05b7d389a3e8fc124",  # us-east-1c
+            ],
+            GITHUB_OIDC_PROVIDER_ARN: "arn:aws:iam::301323023124:oidc-provider/token.actions.githubusercontent.com",
+            LIVES_SAVED_ENABLED: True,
+            LIVES_SAVED_DOMAIN: "livessaved.lastmilehealthdata.org",
+            LIVES_SAVED_HOSTED_ZONE_ID: "Z06020672MB24JCV66DHV",
+            LIVES_SAVED_HOSTED_ZONE_NAME: "lastmilehealthdata.org",
+            LIVES_SAVED_INSTANCE_TYPE: "t3.small",
+            LIVES_SAVED_AMI_ID: "ami-06f98347e4f9c7328",  # AL2023 x86_64, 2026-11-19
+            LIVES_SAVED_GITHUB_ENVIRONMENT: "prod",
         },
     }
 
