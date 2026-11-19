@@ -9,7 +9,10 @@ from .aurora_postgres_stack import AuroraPostgresStack
 from .iam_user_stack import IamUserStack
 from .agent_apprunner_stack import AgentAppRunnerStack
 from .portal_fast_stack import PortalFastStack
-from .configuration import get_environment_configuration, PORTAL_FAST_ENABLED, VPC_ID
+from .lives_saved_stack import LivesSavedStack
+from .configuration import (
+    get_environment_configuration, LIVES_SAVED_ENABLED, PORTAL_FAST_ENABLED, VPC_ID,
+)
 
 
 class PipelineDeployStage(Stage):
@@ -111,3 +114,13 @@ class PipelineDeployStage(Stage):
                 **kwargs,
             )
             tag(portal_fast_stack, target_environment)
+
+        # lmh-lives-saved-tool on EC2 (web + api via docker compose, Caddy TLS).
+        if get_environment_configuration(target_environment).get(LIVES_SAVED_ENABLED):
+            lives_saved_stack = LivesSavedStack(
+                self,
+                f"{target_environment}-lives-saved",
+                target_environment=target_environment,
+                **kwargs,
+            )
+            tag(lives_saved_stack, target_environment)
