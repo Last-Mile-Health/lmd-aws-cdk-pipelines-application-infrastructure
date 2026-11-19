@@ -13,6 +13,7 @@ This repo defines the **AWS infrastructure for the Last Mile Data (LMD) portal a
 - [Live services](#live-services)
 - [What gets deployed (and what doesn't)](#what-gets-deployed-and-what-doesnt)
 - [Repositories this repo supports](#repositories-this-repo-supports)
+- [App deployment guide](#app-deployment-guide) ← **start here to understand how each app ships**
 - [Branches and protection](#branches-and-protection)
 - [The FastAPI service (`PortalFastStack`)](#the-fastapi-service-portalfaststack)
 - [The Lives Saved Tool (`LivesSavedStack`)](#the-lives-saved-tool-livessavedstack)
@@ -120,6 +121,121 @@ All application databases live on **one Aurora PostgreSQL cluster per environmen
 Database creation and migrations are deliberate, reviewed steps, not something the pipeline does. See the DB runbook in [Further reading](#further-reading).
 
 **Agent read-only login.** The AI agent should not use the shared admin login. `scripts/create-agent-readonly-user.sh` creates the Postgres role `lmd_agent_ro` (read-only by default, `lmd_portal` and `lmd_liberia_okr` only, 10 connections, 60 s statement timeout, no temp tables) and stores its login in `<env>/aurora-postgres/agent-readonly`. It's idempotent and a dry run unless you pass `--apply`; re-run it after new schemas are added. It has been run in Dev and Prod (2026-10-26). The agent reads the secret named by its `DB_SECRET_ID` env var; wiring that into `lmd-2-agent` is still open (see [Known gaps](#known-gaps)).
+
+## App deployment guide
+
+How each app gets from a Git push to a running service, checked against the live accounts on 2026-11-19. Each app section answers: where it runs, what triggers a deploy, how to release to Prod, how to check it, and how to roll back.
+
+### Quick reference: "I want to ship…"
+
+| I changed… | Merge to | Goes live on | Then, for Prod |
+|---|---|---|---|
+| The portal frontend (`lmd-portal-UI`) | `main` | https://dev.lastmilehealthdata.org | PR `main` → `prod` → https://lastmilehealthdata.org |
+| The FastAPI (`lmd-portal-services`) | `main` | Dev `lmd-portal-fast` | PR `main` → `prod` (run migrations first if any) |
+| The legacy Flask API (`lmd-portal-services`) | `legacy-dev` | Dev `lmd-portal-services-cdk` | PR `legacy-dev` → `legacy-prod` |
+| The AI agent (`lmd-2-agent`) | `main` | Dev `lmd-2-agent` (used by **both** portals) | — (no separate Prod agent yet) |
+| The Lives Saved Tool (`lmh-lives-saved-tool`) | `main` | https://dev.livessaved.lastmilehealthdata.org | PR `main` → `prod` (Prod not rolled out yet) |
+| Infrastructure (this repo) | `main` | Dev account (Dev pipeline) | PR `main` → `prod` (Prod pipeline) |
+
+Always merge by PR (see [Branches and protection](#branches-and-protection)). App deploys and infra deploys are independent. A new environment variable or permission for an app is an infra change here, not an app change.
+
+### 1. Portal frontend: `lmd-portal-UI` (Next.js on AWS Amplify)
+
+| | Dev | Prod |
+|---|---|---|
+| Amplify app | `lmd-Dev-app` (Dev account) | `lmd-Prod-app` (Prod account) |
+| Branch → URL | `main` → https://dev.lastmilehealthdata.org | `prod` → https://lastmilehealthdata.org and https://www.lastmilehealthdata.org |
+| Other branches built | — | `prod-test` and `games` also auto-build (Amplify preview URLs only, not on the custom domain) |
+
+- **Deploy trigger:** Amplify watches the branch and builds and deploys on every push (Amplify's own build, no GitHub Action).
+- **Release to Prod:** PR `main` → `prod`.
+- **Configuration:** Amplify environment variables, set **in the console** per app/branch:
+  - `LMD_API_BASE_URL` and `NEXT_PUBLIC_LMD_API` point to the legacy API.
+  - `NEW_LMD_API_BASE_URL` points to the FastAPI.
+  - `LMD_API_SERVICE_TOKEN` must equal that environment's FastAPI service token.
+  - `NEXT_PUBLIC_LMD_AI_AGENT_BASE_URL` points to `lmd-2-agent`.
+
+  `NEXT_PUBLIC_*` values are baked in at build time, so changing one needs a rebuild.
+- **Check / roll back:** Amplify console → the app → branch → build history. "Redeploy this version" on an earlier build rolls back.
+- **Infra here:** `AmplifyStack` is frozen and doesn't match the live apps (they and their env vars are console-managed). See [Known gaps](#known-gaps).
+
+### 2. Portal API (FastAPI): `lmd-portal-services`, branches `main` / `prod` (App Runner, image)
+
+| | Dev | Prod |
+|---|---|---|
+| App Runner service | `lmd-portal-fast` · https://cpajhzmcfs.us-east-1.awsapprunner.com/api | `prod-lmd-portal-fast` · https://mr67vamkpf.us-east-1.awsapprunner.com/api |
+| Image | ECR `lmd-portal-services:main` (Dev account) | ECR `prod-lmd-portal-services:prod` (Prod account), also `:prod-<sha>` |
+| Built by | `.github/workflows/docker-push-ecr.yml` on push to `main` (AWS access via repo secrets) | `.github/workflows/docker-push-ecr-prod.yml` on push to `prod` (GitHub OIDC, GitHub environment `prod`, no keys) |
+| Defined in | Console (not in CDK yet) | `PortalFastStack` |
+| Migrations | Run at startup (`RUN_MIGRATIONS_ON_STARTUP` defaults to true) | **Not** at startup (`RUN_MIGRATIONS_ON_STARTUP=false`); run them as a release step |
+
+- **Deploy trigger:** the workflow pushes the image; App Runner has auto-deploy on and rolls out each new image. If the new version fails `/api/health`, App Runner keeps the old one running.
+- **Release to Prod:** PR `main` → `prod`. If the release adds Alembic revisions, take a snapshot and run `python -m api.bootstrap` against Prod **before** merging (DB runbook). To release only part of `main`, cut a `release/…` branch from `prod` and cherry-pick (as done for #154 in PR #160).
+- **Check:** `curl https://<service>/api/health` returns 200. Every other route needs the `X-Service-Token` header (see [The FastAPI service](#the-fastapi-service-portalfaststack)).
+- **Roll back (Prod):** re-point `:prod` at a previous `prod-<sha>` image; App Runner redeploys.
+- **Config changes:** Prod env vars and secrets are in `PortalFastStack` (PR here). Dev's are in the console until Dev is codified.
+
+### 3. Legacy Flask API: `lmd-portal-services`, branches `legacy-dev` / `legacy-prod` (App Runner, source)
+
+| | Dev | Prod |
+|---|---|---|
+| App Runner service | `lmd-portal-services-cdk` · https://p8wutvgugr.us-east-1.awsapprunner.com/api | `lmd-portal-services-cdk` · https://3pf72ntfe3.us-east-1.awsapprunner.com/api |
+| Source | branch `legacy-dev` | branch `legacy-prod` |
+
+- **Deploy trigger:** App Runner is connected to GitHub, and **builds from source** on every push to its branch. There's no image or workflow.
+- **Release to Prod:** PR `legacy-dev` → `legacy-prod`.
+- **Still in use:** the portal's `LMD_API_BASE_URL` points here. Keep changes minimal until it's retired.
+- **Infra here:** `AppRunnerStack` is **frozen**. Its code doesn't match the running services, so don't deploy it (that's why `aurora_only=true` exists).
+
+### 4. AI agent: `lmd-2-agent` (App Runner, image)
+
+There are two sets of agent services. Only the first is used.
+
+| | The one the portals use | CDK-managed (not used yet) |
+|---|---|---|
+| Service | `lmd-2-agent` · https://5gygvejpie.us-east-1.awsapprunner.com (Dev account, used by **both** Dev and Prod portals) | `dev-lmd-application-agent` · `j2uiy5wazq` (Dev), `prod-lmd-application-agent` · `k39hgjhtpr` (Prod) |
+| Built by | `lmd-2-agent` repo `.github/workflows/deploy.yml` on push to `main`: builds and pushes ECR `lmd-2-agent:<sha>` and `:latest` (AWS access via static keys in repo secrets) | CodePipeline `<env>-lmd-application-agent-pipeline`, from `lmd-2-agent` `main` (Dev) / `prod` (Prod) through CodeConnections, CodeBuild → ECR `<env>-lmd-application-agent:latest` |
+| Deploy | App Runner auto-deploys `:latest` | App Runner auto-deploys `:latest` |
+| Defined in | Console | `AgentAppRunnerStack` |
+
+- **Ship a change:** merge to `lmd-2-agent` `main`. It goes live for **both** portals at once, because there's no separate Prod agent yet.
+- **Planned:** move the portals to the CDK-managed agents (Prod gets its own), switch the agent to the read-only DB login, remove the static keys. See [Known gaps](#known-gaps).
+
+### 5. Lives Saved Tool: `lmh-lives-saved-tool` (EC2, docker compose)
+
+| | Dev | Prod |
+|---|---|---|
+| Where | EC2 `dev-lmh-lives-saved` · https://dev.livessaved.lastmilehealthdata.org | **Planned, not deployed** (`prod-lmh-lives-saved` · https://livessaved.lastmilehealthdata.org) |
+| Branch | `main` | `prod` (not created yet) |
+
+- **Deploy trigger:** the app repo's `.github/workflows/deploy.yml` runs on every push to `main` / `prod`:
+  1. tests;
+  2. OIDC login as `<env>-lmh-lives-saved-github-deploy`;
+  3. builds and pushes the `api` and `web` images;
+  4. an SSM Run Command runs `deploy/deploy.sh` on the instance;
+  5. a public `/api/health` check.
+
+  PRs run the tests only.
+- **Release to Prod:** PR `main` → `prod` in the app repo. The first Prod release needs the infra promotion first (see [Prod rollout](#the-lives-saved-tool-livessavedstack)).
+- **Check:** `curl https://<domain>/api/health` returns `{"status":"ok", "database":"ok"}`. Logs are in CloudWatch `/lmh-lives-saved/<env>`. For a shell, `aws ssm start-session --target <instance id>` (no SSH).
+- **Roll back:** re-run the last good Deploy run in the app repo, or merge a revert.
+- Full details: [The Lives Saved Tool](#the-lives-saved-tool-livessavedstack).
+
+### 6. Databases (Aurora PostgreSQL)
+
+One cluster per environment (`dev-` / `prod-lmd-portal-database`), shared by the portal APIs, Airflow, the agent (read-only login) and the Lives Saved Tool (own login). Databases aren't deployed by any pipeline: creating a database or login is a script run by hand (`scripts/`), and schema changes are app migrations. See [Databases](#databases).
+
+### 7. This repo (infrastructure)
+
+Merge to `main` → the Dev infra pipeline (Deployment account) deploys the Dev stacks. PR `main` → `prod` → the Prod infra pipeline. Only the stacks listed in [What gets deployed](#what-gets-deployed-and-what-doesnt) deploy. See [Making a change](#making-a-change).
+
+### 8. Leftovers you may run into
+
+These still exist but aren't part of how anything ships today:
+
+- **Prod `Prod-pipeline` (CodePipeline → Elastic Beanstalk `Prod-portal-services`):** created by the frozen `BeanstalkStack`. It still watches `lmd-portal-services` `main` and **fails on every push** (5 failures on 2026-11-18). Ignore the failure emails until it's removed; it doesn't affect the App Runner services.
+- **Prod App Runner `lmd-portal-services` (`bcv2gn4pfr`):** paused, image `lmd-portal-services:latest`. Not used.
+- **ECR repos and artifact buckets of the retired `apprunner-docker` stack.**
 
 ## Branches and protection
 
@@ -288,6 +404,9 @@ Tracked in more detail in the audit and plan under `docs/`:
 - **The Test environment** isn't set up.
 - **Both Aurora clusters' security groups allow 5432 from anywhere** (`0.0.0.0/0`). Access is password-only today; it should be narrowed to the services that need it.
 - **Dev's Lives Saved DNS record** is set by CLI (it lives in the Prod account's zone).
+- **Static AWS keys in GitHub:** `lmd-2-agent`'s deploy workflow and `lmd-portal-services`'s Dev workflow (`docker-push-ecr.yml`) use access keys stored as repo secrets. Move both to OIDC roles like the Prod workflow and the Lives Saved Tool, then delete the keys.
+- **The old Beanstalk pipeline** (`Prod-pipeline`, Prod account) fails on every push to `lmd-portal-services` `main`. Remove it together with the `Prod-portal-services` Beanstalk environment once confirmed unused.
+- **Amplify apps and env vars are console-managed** (`AmplifyStack` is frozen), including the service token the portal sends to the FastAPI.
 - **Synth-time AWS calls** in `apprunner_stack.py` (looks up a secret while synthesizing) should go.
 
 ## Further reading
