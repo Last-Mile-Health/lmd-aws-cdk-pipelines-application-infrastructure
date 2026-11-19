@@ -75,7 +75,7 @@ What runs today (checked 2026-11-18). All App Runner URLs are `https://<id>.us-e
 | **AI agent used by the portal** (`lmd-2-agent`) | `lmd-2-agent` · `5gygvejpie` | **none** (the Prod portal also calls the Dev agent) | image `lmd-2-agent:latest` | console (not in CDK) |
 | AI agent (CDK) | `dev-lmd-application-agent` · `j2uiy5wazq` | `prod-lmd-application-agent` · `k39hgjhtpr` | image `<env>-lmd-application-agent:latest` (its CodePipeline) | `AgentAppRunnerStack` — **not used by the portal** |
 | (paused) | — | `lmd-portal-services` · `bcv2gn4pfr` | — | console |
-| **Lives Saved Tool** (`lmh-lives-saved-tool`) | EC2 `dev-lmh-lives-saved` · https://dev.livessaved.lastmilehealthdata.org | EC2 `prod-lmh-lives-saved` · https://livessaved.lastmilehealthdata.org | branches `main` / `prod` (GitHub Action → ECR → SSM deploy) | `LivesSavedStack` |
+| **Lives Saved Tool** (`lmh-lives-saved-tool`) | EC2 `dev-lmh-lives-saved` · https://dev.livessaved.lastmilehealthdata.org | **Planned, not deployed yet** (will be EC2 `prod-lmh-lives-saved` · https://livessaved.lastmilehealthdata.org; see [Prod rollout](#the-lives-saved-tool-livessavedstack)) | branches `main` / `prod` (GitHub Action → ECR → SSM deploy) | `LivesSavedStack` |
 
 The portal (Amplify) is configured in the console with `LMD_API_BASE_URL` / `NEXT_PUBLIC_LMD_API` → legacy API, `NEW_LMD_API_BASE_URL` → FastAPI, and `NEXT_PUBLIC_LMD_AI_AGENT_BASE_URL` → `lmd-2-agent`.
 
@@ -87,7 +87,7 @@ The portal (Amplify) is configured in the console with `LMD_API_BASE_URL` / `NEX
 |---|---|---|---|
 | `agent-apprunner` | `agent_apprunner_stack.py` | **Yes** | `<env>-lmd-application-agent` App Runner service (code from `lmd-2-agent`) + its CodePipeline. Its instance role can only read `<env>/aurora-postgres/agent-readonly` (see [Databases](#databases)) |
 | `portal-fast` | `portal_fast_stack.py` | **Yes (Prod only)** | The FastAPI service. See below |
-| `lives-saved` | `lives_saved_stack.py` | **Yes** | Lives Saved Tool on EC2. See [The Lives Saved Tool](#the-lives-saved-tool-livessavedstack) |
+| `lives-saved` | `lives_saved_stack.py` | **Yes** (Dev live; Prod on the next `main` → `prod` promotion) | Lives Saved Tool on EC2. See [The Lives Saved Tool](#the-lives-saved-tool-livessavedstack) |
 | `apprunner` | `apprunner_stack.py` | No (frozen) | **Legacy Flask API** (`lmd-portal-services`, branch `legacy-dev` / `legacy-prod`). Live and used by the frontend. The code no longer matches the running service, so it must not be redeployed until it does |
 | `aurora-postgres` | `aurora_postgres_stack.py` | No (frozen) | The shared Aurora PostgreSQL cluster and its secret `<env>/aurora-postgres/credentials` |
 | `amplify`, `cognito`, `beanstalk`, `iam-user` | … | No (frozen) | Older stacks; not representative of the live setup |
@@ -155,7 +155,9 @@ FastAPI flow: feature branch → PR to `main` (Dev) → PR `main` → `prod`. Le
 
 ## The Lives Saved Tool (`LivesSavedStack`)
 
-`lib/lives_saved_stack.py` runs `lmh-lives-saved-tool` on **one EC2 instance per environment** (plan: `docs/plans/2026-11-19-lives-saved-ec2-plan.md`):
+`lib/lives_saved_stack.py` runs `lmh-lives-saved-tool` on **one EC2 instance per environment** (plan: `docs/plans/2026-11-19-lives-saved-ec2-plan.md`).
+
+> **Status:** **Dev is live** (since 2026-11-19). **Prod is planned, not deployed**: it was held back on purpose. The stack is enabled for Prod in `configuration.py` but hasn't been promoted to this repo's `prod` branch.
 
 ```
 https://<domain> → Elastic IP → EC2 t3.small (public subnet; only 80/443 open, no SSH)
@@ -171,6 +173,14 @@ https://<domain> → Elastic IP → EC2 t3.small (public subnet; only 80/443 ope
 **Deploy flow** (app repo `.github/workflows/deploy.yml`): push to `main` (Dev) or `prod` (Prod) → tests → build and push both images → SSM Run Command copies `deploy/` to `/opt/lmh-lives-saved` and runs `deploy.sh` (writes `.env` from the DB secret, `docker compose pull && up --wait`, checks `/api/health` through nginx) → the workflow checks `https://<domain>/api/health`.
 
 **Bootstrap order (per environment):** run `scripts/create-lives-saved-db.sh --apply` → the stack deploys (pipeline) → (Dev) set the DNS record → push the app branch.
+
+**Prod rollout (when it's time).** These are already done: the Prod database, login and secret (`prod/aurora-postgres/lives-saved-tool`), and the app repo's `prod` GitHub environment (deployable from `prod` only). What's left, in this order:
+
+1. **Infra:** PR `main` → `prod` here. The Prod pipeline creates `Prod-Prod-lives-saved`, including the DNS record.
+2. **App:** create `prod` from `main` in `lmh-lives-saved-tool` and push. The Deploy workflow deploys to Prod. If this runs before step 1 has finished, the deploy job fails at the AWS login; re-run it after step 1.
+3. Check https://livessaved.lastmilehealthdata.org/api/health.
+
+> ⚠️ **Any `main` → `prod` promotion of this repo now deploys this stack**, even one made for an unrelated change. If Prod should stay off for longer, set `LIVES_SAVED_ENABLED: False` for Prod in `configuration.py` first.
 
 ## Rules we work by
 
