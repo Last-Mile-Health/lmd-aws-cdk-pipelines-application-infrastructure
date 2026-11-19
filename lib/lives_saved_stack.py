@@ -15,6 +15,7 @@ from constructs import Construct
 from .configuration import (
     DEPLOYMENT, GITHUB_OIDC_PROVIDER_ARN, GITHUB_REPOSITORY_OWNER_NAME,
     LIVES_SAVED_AMI_ID, LIVES_SAVED_DOMAIN, LIVES_SAVED_GITHUB_ENVIRONMENT,
+    LIVES_SAVED_GITHUB_OIDC_SUB_PREFIX,
     LIVES_SAVED_GITHUB_REPOSITORY_NAME, LIVES_SAVED_HOSTED_ZONE_ID,
     LIVES_SAVED_HOSTED_ZONE_NAME, LIVES_SAVED_INSTANCE_TYPE, PUBLIC_SUBNET_IDS, VPC_ID,
     get_all_configurations,
@@ -214,7 +215,8 @@ class LivesSavedStack(Stack):
                     "StringEquals": {
                         "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
                         "token.actions.githubusercontent.com:sub":
-                            f"repo:{github_repo}:environment:{github_environment}",
+                            f"{mappings[DEPLOYMENT][LIVES_SAVED_GITHUB_OIDC_SUB_PREFIX]}"
+                            f":environment:{github_environment}",
                     }
                 },
             ),

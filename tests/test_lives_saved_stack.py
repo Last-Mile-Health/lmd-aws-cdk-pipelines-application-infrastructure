@@ -112,7 +112,8 @@ def test_deploy_role_trusts_only_its_github_environment(dev, prod):
                 "Condition": {"StringEquals": {
                     "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
                     "token.actions.githubusercontent.com:sub":
-                        f"repo:Last-Mile-Health/lmh-lives-saved-tool:environment:{environment}",
+                        "repo:Last-Mile-Health@9609034/lmh-lives-saved-tool@1463055911"
+                        f":environment:{environment}",
                 }},
             })]},
         })
